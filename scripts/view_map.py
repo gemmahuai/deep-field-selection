@@ -1,78 +1,44 @@
+### Plot a given sky map provided by Shuang-Shuang Chen
+
+# Usage: python view_map.py --h
+
+# Gemma Huai, 12/13/2024
+
+
 import numpy as np
+import argparse
 from matplotlib import pyplot as plt
-import astropy.units as u
-from astropy import constants as const
-import pandas as pd
-from astropy.table import Column
-from astropy.time import Time
-from scipy import interpolate as interp
-import time
-# from Photoz import photoz_tools as phtz
-from tractor import *
-from skimage.transform import downscale_local_mean
-import scipy.optimize as opt
 import matplotlib as mpl
-from scipy.spatial.distance import cdist
-
-rom astropy.io import fits
-from astropy.wcs import WCS
-from astropy.coordinates import SkyCoord
-from astropy.visualization.wcsaxes import SphericalCircle
-from astropy.coordinates import BarycentricMeanEcliptic, BarycentricTrueEcliptic
-import healpy
-
-import itertools
-import matplotlib.pyplot as plt
-from astropy.table import hstack
-import os
-
-import SPHEREx_ObsSimulator as SPobs
-from SPHEREx_Simulator_Tools import SPHEREx_Logger, data_filename
-import SPHEREx_InstrumentSimulator as SPinst
-import SPHEREx_SkySimulator as SPsky
-from pkg_resources import resource_filename
-
-# survey_plan_file = 'spherex_survey_plan_march_2021.fits'
-survey_plan_file = "/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/spherex_survey_plan_R2.fits"
-SPHEREx_Pointings = SPobs.Pointings(input_file = survey_plan_file,
-                                   Gaussian_jitter=1.8, 
-                                   roll_angle='psi2')
-
-from spherex_parameters import load_spherex_parameters
-# Load instrument and project parameters as a dictionary
-spherex_parameters = load_spherex_parameters()
-
-
-ds1 = 4
-ds2 = 2
-trim = 32
-SPHEREx_Instrument = SPinst.Instrument(
-    instrument_data=spherex_parameters,
-    psf=data_filename("psf/simulated_PSF_database_centered_v3_og.fits"),
-    psf_downsample_by_array={1: ds1, 2: ds1, 3: ds1, 4: ds2, 5: ds2, 6: ds2},
-    psf_trim_by_array={1: trim, 2: trim, 3: trim, 4: trim, 5: trim, 6: trim},
-
-    noise_model=SPinst.white_noise,
-    dark_current_model=SPinst.poisson_dark_current,
-    lvf_model=SPinst.Tabular_Bandpass()
-)
-
-from SPHEREx_SkySimulator import QuickCatalog
-from SPHEREx_SkySimulator import Catalog_to_Simulate
-# path='/Users/zhaoyuhuai/SPHEREx-Sky-Simulator/docs/QuickCatalog/'
-
-from pyarrow import parquet
-from astropy.table import Table
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+import astropy.units as u
 from astropy.io import fits
-Channels = Table.read(data_filename('Channel_Definition_03022021.fits'))
-Scene = SPsky.Scene(SPHEREx_Pointings,
-                        zodi_model=SPsky.zodicalc.ModifiedKelsallModelWithHPFT())
-
-COSMOS_tab = Table.read('/Users/gemmahuai/Desktop/CalTech/SPHEREx/SPHEREx_2023/COSMOS2020_FARMER_R1_v2.1_p3_in_Richard_sim_2023Dec4.fits', format='fits')
-COSMOS_sim_sources = Table.read('/Users/gemmahuai/Desktop/CalTech/SPHEREx/SPHEREx_2023/COSMOS2020_FARMER_R1_v2.1_p3_in_Richard_sim_2023Dec4.fits', format='fits')
+from astropy.wcs import WCS
 
 
-fits_file = "./maps/schen6/deep_north_dc.fits" 
+parser = argparse.ArgumentParser(description="Plot sky maps from Shuang-Shuang")
+parser.add_argument('--m', type=int, required=True, help='which map to plot: 0 = galaxies; 1 = zodi; 2 = DC; 3 = read noise.')
+parser.add_argument('--z', type=int, required=True, help='zoom in the central 1 sq deg around the NEP or not, 0 = no; 1 = yes')
+args = parser.parse_args()
+
+which_map = args.m 
+zoom = args.z
+
+## load the map
+DIR_MAP = "/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/maps/schen6/"
+match which_map:
+    case 0:
+        fits_file = DIR_MAP + "deep_north_galaxies.fits"
+        label = "SPHEREx Deep Field Map for Galaxies"
+    case 1:
+        fits_file = DIR_MAP + "deep_north_zodi.fits"
+        label = "SPHEREx Deep Field Map for Zodiacal Light"
+    case 2:
+        fits_file = DIR_MAP + "deep_north_dc.fits"
+        label = "SPHEREx Deep Field Map for Dark Current"
+    case 3:
+        fits_file = DIR_MAP + "deep_north_read_noise.fits"
+        label = "SPHEREx Deep Field Map for Read Noise"
+
 with fits.open(fits_file) as hdul:
     data = hdul[0].data
     header = hdul[0].header
@@ -80,25 +46,64 @@ with fits.open(fits_file) as hdul:
 # extract wcs info
 wcs = WCS(header)
 
-# Step 3: Define the target coordinate frame
-# Uncomment one of these based on the desired coordinate system
-# target_frame = Galactic()  # For Galactic coordinates
-target_frame = BarycentricTrueEcliptic()  # For Ecliptic coordinates
+# plot
+fig = plt.figure(figsize=(8, 10))
 
-# Step 4: Plot the data in the desired coordinates
-fig = plt.figure(figsize=(10, 10))
-ax = fig.add_subplot(111, projection=wcs)  # Use projection=wcs directly here
-ax.imshow(data, origin="lower", cmap="viridis")
-
-# Step 5: Transform WCS to the target frame
-ax.coords.grid(True, color="white", ls="dotted")
-ax.coords[0].set_axislabel(f"Longitude ({target_frame.__class__.__name__})", fontsize=15)
-ax.coords[1].set_axislabel(f"Latitude ({target_frame.__class__.__name__})", fontsize=15)
-ax.set_title("SPHEREx Deep Field Region in Ecliptic Coordinates")
-
-# Show the plot
-cbar = plt.colorbar(ax.images[0], ax=ax)
+ax1 = fig.add_subplot(111, projection=wcs) 
+ax1.imshow(data, aspect='auto', origin="lower", cmap="viridis")
+cbar = plt.colorbar(ax1.images[0], ax=ax1, location='bottom', pad=0.1)
 cbar.set_label('Surface Brightness [MJy / Sr]', fontsize=15)
+
+## plot a zoomed-in map
+if zoom == 1:
+    if (header['NAXIS1'] * header['CDELT1'])>1:
+        print("plot the 1 deg^2 zoomed-in region...")
+        # inset axes....
+        # 1 square deg surrounding NEP
+        size = 0.5 # deg
+        x1 = int(header['CRPIX1'] - size/header['CDELT1'])
+        x2 = int(header['CRPIX1'] + size/header['CDELT1'])
+        y1 = int(header['CRPIX2'] - size/header['CDELT2'])
+        y2 = int(header['CRPIX2'] + size/header['CDELT2'])
+        dt = int((x2-x1)/2) # ticking interval
+
+        data_zoom = np.zeros_like(data) + np.nanmedian(data)
+        data_zoom[y1:y2, x1:x2] = data[y1:y2, x1:x2].copy()
+
+        ticks = np.arange(x1, x2+dt, dt)
+        ticks_label = [f'{i}' for i in ticks]
+        axins = ax1.inset_axes(
+            [0.7, 0.7, 0.45, 0.45],
+            xlim=(x1, x2), ylim=(y1, y2), projection=wcs)
+        im = axins.imshow(data_zoom,  origin="lower", cmap="viridis")
+
+        divider = make_axes_locatable(axins)
+        cax = divider.new_vertical(size = "5%",
+                                pad = 0.2,
+                                pack_start = True)
+
+        fig.add_axes(cax, ticks = mpl.ticker.FixedLocator([]))
+        cbar1 = fig.colorbar(im, cax = cax, orientation = "horizontal", shrink=0.75)
+
+        axins.set_title(r'1 $\text{deg}^2$ NEP', color='blue')
+        axins.coords.grid(True, color='white', ls='dotted')
+        ticks = np.arange(x1, x2+dt, dt)
+        ticks_label = [f'{i}' for i in ticks]
+        axins.coords[0].set_ticks(number=3)
+        axins.coords[1].set_ticks(number=3)
+        axins.coords[0].set_axislabel(" ")
+        axins.coords[1].set_axislabel(" ")
+
+        ax1.indicate_inset_zoom(axins, edgecolor="blue")
+
+    else:
+        print("The area of the input map is smaller than 1 deg^2; cannot zoom in further!")
+        # raise ValueError
+
+
+ax1.coords.grid(True, color="white", ls="dotted")
+ax1.coords[0].set_axislabel(f"Longitude (RA)", fontsize=15)
+ax1.coords[1].set_axislabel(f"Latitude (DEC)", fontsize=15)
+ax1.set_title(label, fontsize=17)
+
 plt.show()
-
-
