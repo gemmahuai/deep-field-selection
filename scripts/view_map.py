@@ -16,8 +16,10 @@ from astropy.wcs import WCS
 
 
 parser = argparse.ArgumentParser(description="Plot sky maps from Shuang-Shuang")
-parser.add_argument('--m', type=int, required=True, help='which map to plot: 0 = galaxies; 1 = zodi; 2 = DC; 3 = read noise.')
-parser.add_argument('--z', type=int, required=True, help='zoom in the central 1 sq deg around the NEP or not, 0 = no; 1 = yes')
+parser.add_argument('--m', type=int, required=True, 
+                    help='which map to plot: 0 = galaxies; 1 = zodi; 2 = DC; 3 = read noise.')
+parser.add_argument('--z', type=int, required=True, 
+                    help='zoom in the central 1 sq deg around the NEP or not, 0 = no; 1 = yes')
 args = parser.parse_args()
 
 which_map = args.m 
