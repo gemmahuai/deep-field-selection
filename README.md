@@ -2,54 +2,65 @@
 Perform photometry on galaxies on the deep-field sky maps for SPHEREx
 
 __Inputs__: 
-1. Catalog of galaxies for which we do photometry
+1. Catalog of galaxies for photometry
     * source ID
     * position RA, DEC
-    * (flux?, see problems)
+    * (brightness? TBD, need further clarification.)
 2. Noise realization maps
     * A DC realization map
     * A read noise realization map
-    * A true zodi map (for baseline calculation?)
-    * A ZL realization map w/ photon noise
-    * __A galaxy map__ (???)
+    * A true zodi light map (for baseline calculation?)
+    * A ZL realization map w/ photon noise? (not necessary)
+    * __A galaxy map__ (? unclear, needs clarification.)
 3. Noise sigma maps
     * A DC sigma map
     * A read noise sigma map
-    * A ZL photon noise sigma map (? optional)
-4. PSF!!! likely per channel / varying with position?
+    * A ZL photon noise sigma map (optional)
+4. __PSF__ potentially per channel and varying with position?
 
 ---
 __Procedure__:
 
 (Per fiducial channel, assuming no galaxy map) 
-1. Define a cutout, in the same space as the PSF; calculate ra, dec coords of the center and edges
-2. Convolve flux with the PSF; place it into the cutout
-    * Given flux, PSF
-    * Assuming the LVF has been included in the flux
-    * Also add nearby sources if there's any, transforming ra, dec to cutout coordinates. (Might have to deal with oversampling/downsampling source position...)
-3. Pull out the sub-ZLmap; add onto the cutout
-    * Given the cutout's ra, dec coords, pull out a sub-patch from the true ZL map of the same size.
+1. Define a cutout surrounding a given source.
+    * In the same coordinate space as the PSFs;
+    * Calculate the ra, dec coords of the cutout's center and edges.
+3. Convolve flux with PSF and populate the cutout
+    * Given source flux, PSF;
+    * Assuming the LVF effects have been included;
+    * Place the primary source to photometer at the cutout center;;
+    * Add nearby sources if there's any, by transforming their ra, dec coords into the cutout coordinates. (Might have to deal with oversampled/downsampled source position...)
+4. Extract and add sub-ZL map to the cutout
+    * Using the RA and DEC coordinates of the cutout, extract a sub-patch from the true zodiacal light (ZL) map of the same size as the cutout.
     * Transform the sub-map into the PSF coord space 
-    * Add the ZL map onto the cutout
-4. Calculate a photon noise map due to ZL + source; add onto the cutout
-5. Pull out the sub-DC & read noise realization maps; add onto the cutout
-    * From noise realization maps (input #2), same calculation in step #3, pull out sub-patches. 
-6. Sum up noise sigmas from step 3 & 4 & 5 --> total variance map
-    * Photon noise sigma map = noiseless map from step #2
+    * Add the ZL map to the cutout
+5. Calculate a photon Poisson noise map due to ZL + source; add to the cutout
+6. Extract and add sub-DC and read noise maps
+    * Extract sub-patches from the DC and read noise realization maps (input #2), following the same cutout extraction process as in step #3.
+    * Add these maps to the cutout.
+7. Calculate a total noise variance map from noise sigma maps in step 3 & 4 & 5
+    * Photon noise variance map = noiseless cutout from step #2
     * DC, read noise sigma maps from input #3
-7. Subtract baseline (true zodi sub-map + mean noise map)
-8. Do photometry:
+8. Subtract baseline (true ZL + mean noise map)
+9. Do photometry:
     1. Tractor on: 
-        * Given cutout to fit + source position (cutout space) + variance map + PSF model
-        * Need to rewrite SPHERExTractorPSF class in tractor_utils.py. Currently we use this class to generate a PSF model given an x,y pixel position and an array number, directly passing it to Tractor as their unit flux model. But using sky maps, PSFs are likely some effective models incorporating multiple observations, also with better resolution (3''). 
+        * Inputs: cutout to fit, source position (cutout space), variance map, PSF model
+        * Need to rewrite SPHERExTractorPSF class in tractor_utils.py. Currently we use this class to generate a PSF model given an x,y pixel position and an array number, directly passing it to Tractor as their unit flux model. But using sky maps, PSFs are likely some effective models incorporating multiple observations, also with higher resolution (3''). 
     2. Tractor off:
         * Use do_psf_phot() function in quickcatalog.py with very few changes hopefully.
-9. Output photometry results
-10. Repeat step #1-9 for all fiducial channels.
+10. Save photometry results
+11. Repeat step #1-9 for all fiducial channels.
 
 
 
 ---
 __Problems__:
-1. For the galaxy map, are spectral filters (LVFs) already incorporated? 
-2. PSF model (which space? on the detector plane | ra, dec space | ecliptic coords)
+1. For the galaxy map, are spectral filters (LVFs) already incorporated?
+2. PSF model 
+    * Oversampling / downsampling?
+    * Resolution?
+    * In which coordinate system? detector plane? ra,dec? ecliptic coords?
+    * Averaged over multiple orientations?
+    * Naive question - any conversion factor from RA, DEC coords to detector plane coords (likely in which we do photometry)?
+3. Does the map contain pointing ditherings? 
+      
