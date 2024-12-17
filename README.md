@@ -59,8 +59,7 @@ __Problems__:
 2. PSF model 
     * Oversampling / downsampling?
     * Resolution?
-    * In which coordinate system? detector plane? ra,dec? ecliptic coords?
+    * In which coordinate system? detector pixels? ra,dec? ecliptic coords?
     * Averaged over multiple orientations?
-    * Naive question - any conversion factor from RA, DEC coords to detector plane coords (likely in which we do photometry)?
 3. Does the map contain pointing ditherings? 
       
