@@ -300,6 +300,97 @@ class PSF:
         return psf_interp
     
 
+## more interpolation methods
+    def interp_images_1d(self, wl):
+        ''' 
+        Interpolate from stored PSFs to a chosen wavelength `wl`
+        
+        INPUT:
+        - wl: where to interpolate, wavelength in um
+        
+        OUTPUT:
+        The interpolated NxN image.
+        '''
+        
+        # get points
+        imgs = np.array(self.psf)
+        Z1 = np.array([self.wl[i].value for i in range(len(self.wl))])
+        n = imgs.shape[1]
+        points = (Z1, np.arange(n), np.arange(n))
+        
+        # get interpolated points
+        xi = np.rollaxis(np.mgrid[:n, :n], 0, 3).reshape((n**2, 2))
+        xi = np.c_[np.repeat(wl,n**2), xi]
+        #print(xi.shape)
+        
+        # interpolate
+        from scipy.interpolate import interpn
+        img_interp = interpn(points, imgs, xi, method='linear', bounds_error=False, fill_value=None)
+        img_interp = img_interp.reshape((n, n))
+        #print(np.sum(img_interp))
+        
+        return(img_interp)
+
+## interpolate multiple PSFs at a time
+
+    def create_interpolator(self, interp_order):
+        """
+        Create an interpolator that can be fed into interpolate_at() to calculate a stack of interpolated PSFs
+
+        INPUT:
+        - interp_order: string, order of interpolation, could be 'linear', ....
+
+        OUTPUT:
+        - An interpolator.
+        """
+
+        if len(self.psf) != len(self.wl):
+            raise ValueError("Length of Z1 must match the first dimension of images.")
+        
+        # wavelength array, unitless
+        Z1 = np.array([self.wl[i].value for i in range(len(self.wl))])
+
+        # Define the interpolator
+        from scipy.interpolate import RegularGridInterpolator
+        interpolator = RegularGridInterpolator(
+            points=(Z1, np.arange(np.array(self.psf).shape[1]), np.arange(np.array(self.psf).shape[2])),
+            values=np.array(self.psf),
+            method=interp_order,
+            bounds_error=False,
+            fill_value=None
+        )
+        return interpolator
+    
+    def interpolate_at(self, interpolator, wls):
+        """
+        Interpolates the stack of images at the specified wavelengths 'wls'.
+
+        INPUT:
+        - wls: single value or array of wavelengths interpolate, in um.
+
+        OUTPUT:
+        - Interpolated images at each wls position, with shape (len(wls), N, N)
+        if wls is an array, or (N, N) if wls is a scalar.
+
+        """
+        Z1_interp = np.atleast_1d(wls) 
+        Nimage = self.psf[0].shape[0]
+        # generate the grid of (i, j) positions for each Z1_interp
+        grid = np.stack(np.meshgrid(np.arange(Nimage), np.arange(Nimage), indexing="ij"), axis=-1)
+        grid = grid.reshape(-1, 2) 
+
+        # add the Z1_interp dimension to the grid
+        full_grid = np.array([
+            np.hstack((np.full((grid.shape[0], 1), z), grid))
+            for z in Z1_interp
+        ]).reshape(-1, 3)
+
+        # interpolate at all points
+        interpolated = interpolator(full_grid).reshape(len(Z1_interp), Nimage, Nimage)
+        return interpolated if len(Z1_interp) > 1 else interpolated[0]
+
+        
+
 
 ### add methods from mapmakerparams.py
     def __get_channel_def(self,array,subch):
