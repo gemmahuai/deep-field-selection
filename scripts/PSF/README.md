@@ -8,19 +8,14 @@ __Workflow__:
 ```mermaid
 graph LR;
     %% Define input PSFs in the same row
-    PSF1["PSF1<br>x, y (mm)"]:::circle
-    PSF2["PSF2<br>x, y (mm)"]:::circle
-    PSF3["PSF3<br>x, y (mm)"]:::circle
-    PSF4["PSF4<br>x, y (mm)"]:::circle
-    PSF5["PSF5<br>x, y (mm)"]:::circle
-    Dots["... ..."]:::dot
-    PSF52["PSF52<br>x, y (mm)"]:::circle
-    PSF53["PSF53<br>x, y (mm)"]:::circle
-    PSF54["PSF54<br>x, y (mm)"]:::circle
+    PSF1(("PSF1<br>x, y (mm)"))-.-
+    PSF2(("PSF2<br>x, y (mm)"))~~~
+    PSF3(("PSF3<br>x, y (mm)"))~~~
+    Dots["... ..."]:::dot~~~
+    PSF52(("PSF52<br>x, y (mm)"))~~~
+    PSF53(("PSF53<br>x, y (mm)"))~~~
+    PSF54(("PSF54<br>x, y (mm)"))
 
-    %% Styling circles and dots
-    classDef circle fill:#f9f,stroke:#333,stroke-width:2px;
-    classDef dot fill:#fff,stroke:none;
 
 
 ```
