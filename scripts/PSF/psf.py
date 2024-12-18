@@ -88,7 +88,7 @@ class PSF:
         wl = []
         for i in range(len(ch)):
             ch_i = ch[i]
-            wl.append(self.get_wavelength(ch_i))
+            wl.append(self.__get_wavelength(ch_i))
         return wl
 
 
@@ -220,7 +220,7 @@ class PSF:
         for array in range(1,nArrays+1):
             for subch in range(nSubchs):
                 print('Array %d, subch. %d' % (array,subch))
-                ch_ndxs,wl_range = self.get_channel_def(array,subch)
+                ch_ndxs,wl_range = self.__get_channel_def(array,subch)
 
                 ch_tups = []
                 xs,ys = ch_ndxs
@@ -261,7 +261,7 @@ class PSF:
 
         psf_wl = np.empty(x.shape)
         for i in range(1,self.nArrays+1):
-            wl_array = self.get_wl_array(i)
+            wl_array = self.__get_wl_array(i)
             for j in range(len(psf_array)):
                 array = psf_array[j]
                 if j == i:
@@ -302,7 +302,7 @@ class PSF:
 
 
 ### add methods from mapmakerparams.py
-    def get_channel_def(self,array,subch):
+    def __get_channel_def(self,array,subch):
         '''
         Return pixel indices and wavelength range for the channel defined by
         an array and a subchannel.
@@ -332,7 +332,7 @@ class PSF:
 
         ndivs = self.chs_per_band
 
-        wl_array = self.get_wl_array(array)
+        wl_array = self.__get_wl_array(array)
         nx,ny = wl_array.shape
 
         ix_mid = int(nx/2)
@@ -363,7 +363,7 @@ class PSF:
         wl_range = (wl_ch_min*u.um,wl_ch_max*u.um)
         return ch_ndxs,wl_range
     
-    def get_wl_array(self,array,lvf_model='default'):
+    def __get_wl_array(self,array,lvf_model='default'):
         if lvf_model == 'default':
             from SPHEREx_InstrumentSimulator import roc_lvf
             lvf_model = roc_lvf
@@ -385,7 +385,7 @@ class PSF:
         return wl_array # um but returned as float, not Quantity
     
 ### add relevant methods from detparams.py
-    def get_wavelength(self, channel):
+    def __get_wavelength(self, channel):
         '''
         Returns the average wavelength (as an astropy quantity with units of 
             length) for the pixels defined by self.channel.
@@ -400,7 +400,7 @@ class PSF:
         acc_wl = 0
         for ch in channel:
             array,subchannel = ch
-            wl_array = self.get_wl_array(array,lvf_model=lvf_model)
+            wl_array = self.__get_wl_array(array,lvf_model=lvf_model)
 
             if subchannel is None:
                 wl_cropped_array = wl_array
@@ -413,7 +413,7 @@ class PSF:
                 if type(subchannel) != list:
                     subchannel = [subchannel]
                 for subch in subchannel:
-                    ndxs,wl_range = self.get_channel_def(array,subch)
+                    ndxs,wl_range = self.__get_channel_def(array,subch)
                     wl_cropped_array[ndxs] = wl_array[ndxs]
             acc_wl += np.nansum(wl_cropped_array)
             acc_w += len(np.where(~np.isnan(wl_cropped_array))[0])
