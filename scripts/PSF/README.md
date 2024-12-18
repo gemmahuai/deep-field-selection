@@ -118,19 +118,19 @@ __Workflow__:
     %% Define interpolated PSFs
     subgraph Row6[Interpolated, symmetrical PSFs]
         direction LR
-        PSFs1_(("interp PSF,<br> CH 1"))
-        PSFs2_(("interp PSF,<br>  CH 2"))
-        PSFs3_(("interp PSF,<br>  CH 3"))
+        PSFs1_(("interp PSF,<br> fid CH 1"))
+        PSFs2_(("interp PSF,<br> fid CH 2"))
+        PSFs3_(("interp PSF,<br> fid CH 3"))
         DOTS(("... ...")):::dot
-        PSFs100(("interp PSF,<br>  CH 100"))
-        PSFs101(("interp PSF,<br>  CH 101"))
-        PSFs102(("interp PSF,<br>  CH 102"))
+        PSFs100(("interp PSF,<br> fid CH 100"))
+        PSFs101(("interp PSF,<br> fid CH 101"))
+        PSFs102(("interp PSF,<br> fid CH 102"))
         PSFs1_~~~PSFs2_~~~PSFs3_~~~DOTS~~~PSFs100~~~PSFs101~~~PSFs102
 
         classDef dot fill:#fff,stroke:none;
     end 
 
-    Row5 -- 2D Interpolation ---> Row6
+    Row5 -- 2D Interpolation to all SPHEREx fiducial channels ---> Row6
 
 
 
