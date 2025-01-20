@@ -148,12 +148,10 @@ def photometer_single_src(args):
 
 
     ## Isolated photometry
-    k = 3
     tID_central = COSMOS_tab['Tractor_ID'][idx_refcat & flag_sub][k]
     print("tID = ", tID_central)
     ra = COSMOS_tab['ra_deep'][idx_refcat & flag_sub][k]
     dec = COSMOS_tab['dec_deep'][idx_refcat & flag_sub][k]
-
     # ra = ra_c
     # dec = dec_c
 
@@ -311,23 +309,23 @@ def photometer_single_src(args):
                     filename=output_filename+".csv", 
                     NewFile=False)
 
-    ## plot to double check photometry
-    hires_sed = Table.read(central_sed_fn, format='fits')
-    fig = plt.figure(figsize=(6,5))
-    plt.plot(hires_sed['lambda'], hires_sed['FLUX'], color='red', lw=3, alpha=0.9, label='Input SED')
-    # plt.errorbar(SPHEREx_Catalog[this]['WAVELENGTH'], SPHEREx_Catalog[this]['FLUX'], SPHEREx_Catalog[this]['FLUX_ERR'], 
-    #              fmt='o', ms=2, alpha=0.1, label='primary')
-    plt.errorbar(secondary_tbl[0]['lambda'], secondary_tbl[0]['flux_allsky']/1000, yerr=secondary_tbl[0]['flux_err_allsky']/1000,
-                fmt='o', ms=5, color='blue', label='secondary, confusion OFF')
-    plt.errorbar(secondary_tbl_confusion[0]['lambda'], secondary_tbl_confusion[0]['flux_allsky']/1000, 
-                yerr=secondary_tbl_confusion[0]['flux_err_allsky']/1000,
-                fmt='o', ms=5, color='green', label='secondary, confusion ON')
-    plt.ylim(0, hires_sed['FLUX'].max()*2)
-    plt.title(f"Tractor ID = {tID_central}", fontsize=15)
-    plt.xlabel("Wavelength (um)", fontsize=15)
-    plt.ylabel("Flux density (mJy)", fontsize=15)
-    plt.legend(fontsize=12, loc='upper right')
-    plt.show()
+    # ## plot to double check photometry
+    # hires_sed = Table.read(central_sed_fn, format='fits')
+    # fig = plt.figure(figsize=(6,5))
+    # plt.plot(hires_sed['lambda'], hires_sed['FLUX'], color='red', lw=3, alpha=0.9, label='Input SED')
+    # # plt.errorbar(SPHEREx_Catalog[this]['WAVELENGTH'], SPHEREx_Catalog[this]['FLUX'], SPHEREx_Catalog[this]['FLUX_ERR'], 
+    # #              fmt='o', ms=2, alpha=0.1, label='primary')
+    # plt.errorbar(secondary_tbl[0]['lambda'], secondary_tbl[0]['flux_allsky']/1000, yerr=secondary_tbl[0]['flux_err_allsky']/1000,
+    #             fmt='o', ms=5, color='blue', label='secondary, confusion OFF')
+    # plt.errorbar(secondary_tbl_confusion[0]['lambda'], secondary_tbl_confusion[0]['flux_allsky']/1000, 
+    #             yerr=secondary_tbl_confusion[0]['flux_err_allsky']/1000,
+    #             fmt='o', ms=5, color='green', label='secondary, confusion ON')
+    # plt.ylim(0, hires_sed['FLUX'].max()*2)
+    # plt.title(f"Tractor ID = {tID_central}", fontsize=15)
+    # plt.xlabel("Wavelength (um)", fontsize=15)
+    # plt.ylabel("Flux density (mJy)", fontsize=15)
+    # plt.legend(fontsize=12, loc='upper right')
+    # plt.show()
 
 
 ## main parallel function
