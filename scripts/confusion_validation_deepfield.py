@@ -256,7 +256,7 @@ def photometer_single_src(args):
 
     # ## save secondary photometry into photo-z input format
     # if k==0:
-    #     print("create new file", output_filename)
+    #     print("create new file", output_filename+".csv")
     #     write_output(source_id=tID_central,
     #                 N_nearsrcs=len(bg_id),
     #                 ra = ra,
@@ -293,6 +293,8 @@ def photometer_single_src(args):
     # plt.ylabel("Flux density (mJy)", fontsize=15)
     # plt.legend(fontsize=12, loc='upper right')
     # plt.show()
+
+    print(f"Simulation {k} Done!")
 
 
 ## main parallel function
@@ -379,7 +381,7 @@ if __name__ == '__main__':
     print("\nStart Parallel Processes...")
     ## Run parallel processing
     Time_start = time.time()
-    source_args = [(k, COSMOS_tab, flag_sub, SPHEREx_Pointings, SPHEREx_Instrument, Scene, output_filename) 
+    source_args = [(k+200, COSMOS_tab, flag_sub, SPHEREx_Pointings, SPHEREx_Instrument, Scene, output_filename) 
                    for k in range(N_patches)]
     parallel_process(func=photometer_single_src,
                      func_args=source_args, 
