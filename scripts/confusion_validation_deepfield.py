@@ -106,50 +106,17 @@ COSMOS_tab = Table.read('/Users/gemmahuai/Desktop/CalTech/SPHEREx/SPHEREx_2023/C
 idx_refcat = np.loadtxt("/Users/gemmahuai/Desktop/CalTech/SPHEREx/source_selection/cosmos166k_posmatch_boolarray.txt", dtype=bool)
 
 
-## Move COSMOS to the deep field
-file = "/Users/gemmahuai/Desktop/CalTech/SPHEREx/source_selection/data/obs_per_ecliptic_lat_R3.fits"
-with fits.open(file) as hdul:
-    data = hdul[1].data
-
-# find ecliptic latitude where Nobs ~ 100 / channel --> 102*100 obs in total
-idx = np.where(abs(data['observations']-(102*100)) == (abs(data['observations']-(102*100))).min())[0][0]
-elat = data['ecliptic_lat'][idx]
-elon = 0 * u.deg # deg # longitude doesn't matter, assuming symmetric about NEP.
-crd = SkyCoord(elon, elat * u.deg, frame=BarycentricMeanEcliptic)  # NEP at (lon=0, lat=90)
-ra0 = crd.transform_to('icrs').ra.deg
-dec0 = crd.transform_to('icrs').dec.deg
-print('RA, DEC for the 100 obs / channel is ', ra0, dec0)
-
-# move COSMOS centered around this calculated coordinate pair.
-ra_c = (COSMOS_tab['ALPHA_J2000'].max() - COSMOS_tab['ALPHA_J2000'].min()) / 2 + COSMOS_tab['ALPHA_J2000'].min()
-dec_c = (COSMOS_tab['DELTA_J2000'].max() - COSMOS_tab['DELTA_J2000'].min()) / 2 + COSMOS_tab['DELTA_J2000'].min()
-if "ra_deep" not in COSMOS_tab.colnames:
-    COSMOS_tab.add_column((COSMOS_tab['ALPHA_J2000'].copy() + (ra0 - ra_c)), name="ra_deep")
-    COSMOS_tab.add_column((COSMOS_tab['DELTA_J2000'].copy() + (dec0 - dec_c)), name="dec_deep")
-
-## select a subsample surrounding the chosen coordinate pair ~ 0.2 * 0.2 deg^2 area --> 1k refcat sources
-ra_min = ra0 - 0.1
-ra_max = ra0 + 0.1
-dec_min = dec0 - 0.1
-dec_max = dec0 + 0.1
-## count number of cosmology sources in the patch
-flag_sub = (COSMOS_tab['ra_deep']>=ra_min) & \
-           (COSMOS_tab['ra_deep']<=ra_max) & \
-           (COSMOS_tab['dec_deep']>=dec_min) & \
-           (COSMOS_tab['dec_deep']<=dec_max)
-print("Number of refcat sources in the selected area = ", len(COSMOS_tab[idx_refcat & flag_sub]))
-
 
 # -------------------------------- Photometry ----------------------------------
 
 def photometer_single_src(args):
 
-    k, SPHEREx_Pointings, SPHEREx_Instrument, Scene, output_filename = args
+    k, COSMOS_tab, flag_sub, SPHEREx_Pointings, SPHEREx_Instrument, Scene, output_filename = args
 
 
     ## Isolated photometry
     tID_central = COSMOS_tab['Tractor_ID'][idx_refcat & flag_sub][k]
-    print("tID = ", tID_central)
+    print(f"\n{k}, tID = ", tID_central)
     ra = COSMOS_tab['ra_deep'][idx_refcat & flag_sub][k]
     dec = COSMOS_tab['dec_deep'][idx_refcat & flag_sub][k]
     # ra = ra_c
@@ -189,27 +156,27 @@ def photometer_single_src(args):
     time_end = time.time()
     print("\nTime elapsed = ", time_end - time_start)
 
-    ## save secondary photometry into photo-z input format
-    if k==0:
-        print("create new file", output_filename+"_controlled.csv")
-        write_output(source_id=tID_central,
-                    N_nearsrcs=0,
-                    ra = ra,
-                    dec = dec,
-                    flux=secondary_tbl[0]['flux_allsky']/1000, 
-                    flux_err=secondary_tbl[0]['flux_err_allsky']/1000,
-                    filename=output_filename+"_controlled.csv", 
-                    NewFile=True)
-    else:
-        print("write to an existing file", output_filename+"_controlled.csv")
-        write_output(source_id=tID_central,
-                    N_nearsrcs=0,
-                    ra = ra,
-                    dec = dec,
-                    flux=secondary_tbl[0]['flux_allsky']/1000, 
-                    flux_err=secondary_tbl[0]['flux_err_allsky']/1000,
-                    filename=output_filename+"_controlled.csv", 
-                    NewFile=False)
+    # ## save secondary photometry into photo-z input format
+    # if k==0:
+    #     print("create new file", output_filename+"_controlled.csv")
+    #     write_output(source_id=tID_central,
+    #                 N_nearsrcs=0,
+    #                 ra = ra,
+    #                 dec = dec,
+    #                 flux=secondary_tbl[0]['flux_allsky']/1000, 
+    #                 flux_err=secondary_tbl[0]['flux_err_allsky']/1000,
+    #                 filename=output_filename+"_controlled.csv", 
+    #                 NewFile=True)
+    # else:
+    #     print("write to an existing file", output_filename+"_controlled.csv")
+    #     write_output(source_id=tID_central,
+    #                 N_nearsrcs=0,
+    #                 ra = ra,
+    #                 dec = dec,
+    #                 flux=secondary_tbl[0]['flux_allsky']/1000, 
+    #                 flux_err=secondary_tbl[0]['flux_err_allsky']/1000,
+    #                 filename=output_filename+"_controlled.csv", 
+    #                 NewFile=False)
 
 
 
@@ -287,27 +254,27 @@ def photometer_single_src(args):
     secondary_tbl_confusion = Table.read(file_inter, format="parquet")
 
 
-    ## save secondary photometry into photo-z input format
-    if k==0:
-        print("create new file", output_filename)
-        write_output(source_id=tID_central,
-                    N_nearsrcs=len(bg_id),
-                    ra = ra,
-                    dec = dec,
-                    flux=secondary_tbl_confusion[0]['flux_allsky']/1000, 
-                    flux_err=secondary_tbl_confusion[0]['flux_err_allsky']/1000,
-                    filename=output_filename+".csv", 
-                    NewFile=True)
-    else:
-        print("write to an existing file", output_filename+".csv")
-        write_output(source_id=tID_central,
-                    N_nearsrcs=len(bg_id),
-                    ra = ra,
-                    dec = dec,
-                    flux=secondary_tbl_confusion[0]['flux_allsky']/1000, 
-                    flux_err=secondary_tbl_confusion[0]['flux_err_allsky']/1000,
-                    filename=output_filename+".csv", 
-                    NewFile=False)
+    # ## save secondary photometry into photo-z input format
+    # if k==0:
+    #     print("create new file", output_filename)
+    #     write_output(source_id=tID_central,
+    #                 N_nearsrcs=len(bg_id),
+    #                 ra = ra,
+    #                 dec = dec,
+    #                 flux=secondary_tbl_confusion[0]['flux_allsky']/1000, 
+    #                 flux_err=secondary_tbl_confusion[0]['flux_err_allsky']/1000,
+    #                 filename=output_filename+".csv", 
+    #                 NewFile=True)
+    # else:
+    #     print("write to an existing file", output_filename+".csv")
+    #     write_output(source_id=tID_central,
+    #                 N_nearsrcs=len(bg_id),
+    #                 ra = ra,
+    #                 dec = dec,
+    #                 flux=secondary_tbl_confusion[0]['flux_allsky']/1000, 
+    #                 flux_err=secondary_tbl_confusion[0]['flux_err_allsky']/1000,
+    #                 filename=output_filename+".csv", 
+    #                 NewFile=False)
 
     # ## plot to double check photometry
     # hires_sed = Table.read(central_sed_fn, format='fits')
@@ -335,7 +302,7 @@ def parallel_process(func, func_args, max_cpu_percent):
     total_cores = mp.cpu_count()
     max_workers = int(total_cores * max_cpu_percent / 100)
     max_workers = max(1, max_workers)  # Ensure at least one worker
-    chunksize = 5
+    chunksize = 1
     batchsize = chunksize * max_workers # number of tasks to parallel at a time
 
     
@@ -373,9 +340,46 @@ if __name__ == '__main__':
 
     output_filename = "/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data/secondary_combined_to_photoz"
 
+    
+
+    ## Move COSMOS to the deep field
+    file = "/Users/gemmahuai/Desktop/CalTech/SPHEREx/source_selection/data/obs_per_ecliptic_lat_R3.fits"
+    with fits.open(file) as hdul:
+        data = hdul[1].data
+
+    # find ecliptic latitude where Nobs ~ 100 / channel --> 102*100 obs in total
+    idx = np.where(abs(data['observations']-(102*100)) == (abs(data['observations']-(102*100))).min())[0][0]
+    elat = data['ecliptic_lat'][idx]
+    elon = 0 * u.deg # deg # longitude doesn't matter, assuming symmetric about NEP.
+    crd = SkyCoord(elon, elat * u.deg, frame=BarycentricMeanEcliptic)  # NEP at (lon=0, lat=90)
+    ra0 = crd.transform_to('icrs').ra.deg
+    dec0 = crd.transform_to('icrs').dec.deg
+    print('RA, DEC for the 100 obs / channel is ', ra0, dec0)
+
+    # move COSMOS centered around this calculated coordinate pair.
+    ra_c = (COSMOS_tab['ALPHA_J2000'].max() - COSMOS_tab['ALPHA_J2000'].min()) / 2 + COSMOS_tab['ALPHA_J2000'].min()
+    dec_c = (COSMOS_tab['DELTA_J2000'].max() - COSMOS_tab['DELTA_J2000'].min()) / 2 + COSMOS_tab['DELTA_J2000'].min()
+    if "ra_deep" not in COSMOS_tab.colnames:
+        COSMOS_tab.add_column((COSMOS_tab['ALPHA_J2000'].copy() + (ra0 - ra_c)), name="ra_deep")
+        COSMOS_tab.add_column((COSMOS_tab['DELTA_J2000'].copy() + (dec0 - dec_c)), name="dec_deep")
+
+    ## select a subsample surrounding the chosen coordinate pair ~ 0.2 * 0.2 deg^2 area --> 1k refcat sources
+    ra_min = ra0 - 0.1
+    ra_max = ra0 + 0.1
+    dec_min = dec0 - 0.1
+    dec_max = dec0 + 0.1
+    ## count number of cosmology sources in the patch
+    flag_sub = (COSMOS_tab['ra_deep']>=ra_min) & \
+            (COSMOS_tab['ra_deep']<=ra_max) & \
+            (COSMOS_tab['dec_deep']>=dec_min) & \
+            (COSMOS_tab['dec_deep']<=dec_max)
+    print("Number of refcat sources in the selected area = ", len(COSMOS_tab[idx_refcat & flag_sub]))
+
+
+    print("\nStart Parallel Processes...")
     ## Run parallel processing
     Time_start = time.time()
-    source_args = [(k, SPHEREx_Pointings, SPHEREx_Instrument, Scene, output_filename) 
+    source_args = [(k, COSMOS_tab, flag_sub, SPHEREx_Pointings, SPHEREx_Instrument, Scene, output_filename) 
                    for k in range(N_patches)]
     parallel_process(func=photometer_single_src,
                      func_args=source_args, 
