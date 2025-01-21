@@ -28,8 +28,6 @@ from scipy.interpolate import interpn
 
 
 
-
-
 class ConfusionLibrary():
     
     def __init__(self, 
@@ -731,6 +729,9 @@ class ConfusionLibrary():
         plt.plot(wl, hpdi, label='hpdi', color='blueviolet', ls='--', lw=2.5)
         plt.plot(wl, std,  label='std',  color='royalblue',  ls=':',  lw=2.5)
         plt.legend(fontsize=12)
+        plt.xlabel(r"Wavelength ($\mu$m)", fontsize=14)
+        plt.ylabel(f"Confusion flux ({std.unit})"), fontsize=14
+        plt.title("Variation in the Confusion Library", fontsize=15)
         fig3.tight_layout()
         plt.show()
 
