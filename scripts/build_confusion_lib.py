@@ -7,13 +7,12 @@ generates confusion library from sub-threshold sources.
 
 """
 
-import sys
 import re
 import os
 import itertools
 import numpy as np
 import astropy.units as u
-from astropy.table import hstack, Table
+from astropy.table import Table
 from astropy.io import fits
 
 import SPHEREx_SkySimulator as SPsky
@@ -22,36 +21,97 @@ from SPHEREx_SkySimulator import Catalog_to_Simulate
 
 from matplotlib import pyplot as plt
 import matplotlib.cm as cm
-import matplotlib.colorbar as colorbar
 from matplotlib.colors import Normalize
 from scipy.interpolate import interpn
 from matplotlib.backends.backend_pdf import PdfPages
 
 
-
 class ConfusionLibrary():
     
     def __init__(self, 
+                 Pointings,
+                 Instrument,
+                 Scene, 
+                 Channels, 
                  catalog, 
                  ra_colname,
                  dec_colname,
                  id_colname,
                  idx_refcat, 
-                 Pointings,
-                 Instrument,
-                 Scene, 
-                 Channels, 
                  sed_path = "/Users/gemmahuai/Desktop/CalTech/SPHEREx/COSMOS_ALL_HIRES_SEDS_010925/"):
+        
+        """
+        The class constructor
+
+        ----------
+        Parameters:
+
+        Pointings: SPHEREx_ObsSimulator.Pointings
+            A class containing a survey plan of SPHEREx pointings.
+
+        Instrument : SPHEREx_InstrumentSimulator.Instrument
+            A class containing information about instrumental effects to add.
+
+        Scene : SPHEREx_SkySimulator.Scene
+            A class containing information on sky sources to simulate. The
+            `QuickCatalog` class only calls the zodi model.
+        
+        Channels: astropy.table.table.Table
+            A table containing fiducial channel definition; can be loaded from 
+            'Channel_Definition_03022021.fits' using SPHEREx_Simulator_Tools.data_filename
+
+        catalog: astropy.Table
+            Input galaxy catalog, mostly preferred COSMOS catalog with 30-band fluxes.
+        
+        ra_colname: str
+            Column name for the right ascension column in the provided catalog.
+        
+        dec_colname: str
+            Column name for the declination column in the provided catalog.
+
+        id_colname: str
+            Column name for the survey ID column in the provided catalog.
+
+        idx_refcat: boolean array
+            An array of True or False, specifying photometered or un-photometered sources.
+            This can be calculated given a color-magnitude cut on the SPHEREx RefCat.
+            Length of this array should match that of the catalog.
+
+        sed_path: str
+            File path to the high resolution SEDs directory. 
+
+        ----------
+        Returns:
+
+        None
+
+        """
+
+        ## some sanity checks
+        # check the length of the input catalog matches the length of idx_refcat:
+        if len(catalog) != len(idx_refcat):
+            raise ValueError(
+                f"Length mismatch: input catalog has {len(catalog)} entries, "
+                f"but idx_refcat has {len(idx_refcat)} entries. Ensure they match."
+            )
+        print("Catalog and idx_refcat lengths match.")
+
+        # check ra_colname, dec_colname, id_colname are in the catalog.keys():
+        for colname in [ra_colname, dec_colname, id_colname]:
+            if colname not in catalog.keys():
+                raise ValueError(f"Incorrect column name: {colname} not in the given catalog.")
+
         self.catalog = catalog
         self.ra_colname = ra_colname
         self.dec_colname = dec_colname
-        self.id_colname
+        self.id_colname = id_colname
         self.idx_refcat = idx_refcat
         self.P = Pointings
         self.I = Instrument
         self.Scene = Scene
         self.Channels = Channels
         self.sed_path = sed_path
+
         
     def find_sed_fits_file(self, 
                            index, 
@@ -63,6 +123,7 @@ class ConfusionLibrary():
         else:
             DIR = self.sed_path + "120000_166041/"
         return f"{DIR}cosmos2020_hiresSED_FarmerID_{ID:07d}.fits"
+
 
     def write_output(self, 
                      params_insert, 
@@ -144,6 +205,7 @@ class ConfusionLibrary():
             zero_sed['FLUX'] = np.zeros_like(np.arange(0.5, 5.5, d_lambda)) * u.mJy
         
         return zero_sed
+        
         
     def __call__(self):
         
@@ -706,16 +768,20 @@ class ConfusionLibrary():
             start_chan = 12
             cmap = plt.get_cmap('jet')
             norm = Normalize(vmin=1, vmax=6)
-
+            
+            xmax = 0
             for j in range(6):
                 ax.hist(_lib_fluxes[:, start_chan + n_chan * j], 
                         bins=np.linspace(0, _lib_fluxes.max(), int(_lib_fluxes.shape[0] / 25)), 
                         histtype='step', color=cmap(j / 6.0))  # 6.0 ensures proper color spacing
+                if xmax >= np.nanmax(_lib_fluxes[:, start_chan + n_chan * j]):
+                    xmax = np.nanmax(_lib_fluxes[:, start_chan + n_chan * j])
 
             ax.set_xlabel(r'$F_{\nu}$ ($\mu$Jy)', fontsize=15)
             ax.set_ylabel('Count', fontsize=14)
             ax.set_yscale("log")
             ax.set_title("Confusion Library", fontsize=14)
+            ax.set_xlim(0, xmax)
             sm = cm.ScalarMappable(cmap=cmap, norm=norm)
             sm.set_array([])  # Required for ScalarMappable
             cbar = plt.colorbar(sm, ax=ax)
