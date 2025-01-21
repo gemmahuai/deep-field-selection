@@ -11,7 +11,6 @@ import sys
 import re
 import os
 import itertools
-
 import numpy as np
 import astropy.units as u
 from astropy.table import hstack, Table
@@ -20,6 +19,12 @@ from astropy.io import fits
 import SPHEREx_SkySimulator as SPsky
 from SPHEREx_SkySimulator import QuickCatalog
 from SPHEREx_SkySimulator import Catalog_to_Simulate
+
+
+import matplotlib.cm as cm
+import matplotlib.colorbar as colorbar
+from matplotlib.colors import Normalize
+
 
 
 
@@ -454,6 +459,177 @@ class ConfusionLibrary():
         return None
     
     
+    def calc_lib_variation(self, 
+                           path_lib, 
+                           hpdi_bins):
+        """
+        calculates standard deviation, hpdi (highest posterior density interval) 
+        of a given confusion library.
 
+        ----------
+        Inputs:
+        path_lib: str
+                  path to the confusion library.
+                  the dimension must be 2D, take the last 204 columns as fluxes + flux errors.
+        
+        ----------
+        Returns:
+        An array of standard deviation;
+        An array of HPDI  
+        
+        """
+
+        try:
+            ## check library dimension and extract fluxes columns
+            lib = np.loadtxt(path_lib)
+            if len(lib.shape) != 2:
+                raise ValueError(f"Input confusion library must be 2D. Got {lib.shape}.")
+        
+            n_cols = lib.shape[1]
+            col_start = n_cols - 204
+
+            # extract fluxes from the library, flux errors not useful here.
+            _lib_fluxes = lib[:, col_start::2] 
+
+            # determine flux units
+            if _lib_fluxes.mean() < 0.1:
+                # must be in mJy
+                _lib_fluxes = _lib_fluxes * u.mJy
+            else:
+                # in uJy
+                _lib_fluxes = _lib_fluxes * u.uJy
+
+
+            ## calculate mean and STD per channel
+            lib_mean = np.mean(_lib_fluxes, axis=0)
+            lib_std = np.std(_lib_fluxes, axis=0)
+
+            ## calculate HPDI
+            # Richard's code computing the highest posterior density interval (HPDI) of redshift PDF
+            def compute_hdpi(zs, z_likelihood, frac=0.68):
+                ''' 
+                This script computes the 1d highest posterior density interval. 
+                The HDPI importantly assumes that the true posterior is unimodal,
+                so care should be taken to identify multi-modal PDFs before using it on arbitrary PDFs.
+                '''
+
+                idxs_hdpi = []
+                idxmax = np.argmax(z_likelihood)
+                idxs_hdpi.append(idxmax)
+
+                psum = z_likelihood[idxmax]
+
+                idx0 = np.argmax(z_likelihood)+1
+                idx1 = np.argmax(z_likelihood)-1
+
+                if idx0>=len(z_likelihood):
+                    print('idx0>=len(z_likelihood)')
+                    return None, None
+
+                while True:
+
+                    if idx0==len(z_likelihood) or np.abs(idx1)==len(z_likelihood):
+                        print('hit a limit, need to renormalize but passing None for now')
+                        return None, None
+
+                    if z_likelihood[idx0] > z_likelihood[idx1]:
+                        psum += z_likelihood[idx0]
+                        idxs_hdpi.append(idx0)
+                        idx0 += 1
+                    else:
+                        psum += z_likelihood[idx1]
+                        idxs_hdpi.append(idx1)
+                        idx1 -= 1
+
+                    if psum >= frac:
+                        break
+
+                zs_credible = np.sort(zs[np.array(idxs_hdpi)])
+
+                return zs_credible, np.array(idxs_hdpi)
+            
+            # per channel, compute HPDI
+            lib_hpdi = []
+            for c in range(_lib_fluxes.shape[1]):
+
+                # per channel fluxes
+                _flux_c = _lib_fluxes[:, c]
+                _bins = np.linspace(_flux_c.min(), _flux_c.max(), hpdi_bins)
+                _hist, _bins_edge = np.histogram(_flux_c, bins=_bins)
+                _bins_center = _bins_edge[:-1] + np.diff(_bins_edge)[0]/2
+                
+                (_flux_cred, hpdi_idxs) = compute_hdpi(_bins_center, _hist / np.sum(_hist)) # normalized histogram (PDF)
+                if _flux_cred is None:
+                    raise ValueError(f"HPDI calculation failed for channel {c+1}, exit.")
+                
+                hpdi = (_flux_cred.max() - _flux_cred.min())
+                lib_hpdi.append(hpdi.value)
+
+            return lib_std, lib_mean, lib_hpdi
+
+        except ValueError as e:
+            print("Value Error, ", e)
+
+            return None, None, None
+
+
+
+    def plot_lib(self, 
+                 hpdi, 
+                 mean,
+                 std,
+                 path_lib):
+        """
+        plot statistics of a given confusion library.
+
+        ----------
+        Inputs:
+
+        hpdi: 1D array,
+              highest posterior density interval of the confusion library, per channel.
+              calculated from calc_lib_variation() method.
+        
+        mean: 1D array,
+              mean value of the confusion library, per channel.
+              calculated from calc_lib_variation() method.
+
+        std: 1D array,
+             standard deviation of the confusion library, per channel.
+             calculated from calc_lib_variation() method.
+
+        path_lib: str,
+                  path to the confusion library.
+
+
+        ----------
+        Plot:
+
+        1. All confusion spectra in a density plot.
+
+        2. Histograms of confusion fluxes at multiple channels.
+
+        3. Variation of the confusion library (hpdi, std).
+
+        """
+
+
+        lib = np.loadtxt(path_lib)
+        if len(lib.shape) != 2:
+            raise ValueError(f"Input confusion library must be 2D. Got {lib.shape}.")
     
-    
+        n_cols = lib.shape[1]
+        col_start = n_cols - 204
+
+        # extract fluxes from the library, flux errors not useful here.
+        _lib_fluxes = lib[:, col_start::2] 
+
+        # determine flux units
+        if _lib_fluxes.mean() < 0.1:
+            # must be in mJy
+            _lib_fluxes = _lib_fluxes * u.mJy
+        else:
+            # in uJy
+            _lib_fluxes = _lib_fluxes * u.uJy
+
+
+        
