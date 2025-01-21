@@ -2,6 +2,8 @@
 
 tools to construct confusion library from sub-threshold sources.
 
+needs to have quickcatalog_confusion.py in place...
+
 @author: gemmahuai
 01/20/2025
 
@@ -94,7 +96,7 @@ class ConfusionLibrary():
                 f"Length mismatch: input catalog has {len(catalog)} entries, "
                 f"but idx_refcat has {len(idx_refcat)} entries. Ensure they match."
             )
-        print("Catalog and idx_refcat lengths match.")
+        # print("Catalog and idx_refcat lengths match.")
 
         # check ra_colname, dec_colname, id_colname are in the catalog.keys():
         for colname in [ra_colname, dec_colname, id_colname]:
@@ -122,7 +124,7 @@ class ConfusionLibrary():
             DIR = self.sed_path + "60000_120000/"
         else:
             DIR = self.sed_path + "120000_166041/"
-        return f"{DIR}cosmos2020_hiresSED_FarmerID_{ID:07d}.fits"
+        return f"{DIR}cosmos2020_hiresSED_FarmerID_{ID:07d}_corrected.fits"
 
 
     def write_output(self, 
@@ -232,6 +234,7 @@ class ConfusionLibrary():
         # it's in /on the edge of a star-masked region.
         # Then skip and move on to the next randomly drawn position.
         while len(R) < N_positions:
+
             ra = np.random.uniform(low=a_l, high=a_h)
             dec = np.random.uniform(low=d_l, high=d_h)
             
@@ -250,7 +253,7 @@ class ConfusionLibrary():
             i += 1 # move on to the next one
             
         # check if there's enough random blank position generated, matching N_positions
-        if (i != N_positions) or (len(R) != N_positions) or (len(D) != N_positions):
+        if (len(R) != N_positions) or (len(D) != N_positions):
             raise ValueError('Dimension mismatch!')
             
         return R, D
@@ -290,9 +293,7 @@ class ConfusionLibrary():
 
         # generate one random position
         (ra, dec) = self.Coord_gen_rand(Npix, 
-                                        N_positions=1,
-                                        ra_colname=self.ra_colname,
-                                        dec_colname=self.dec_colname)
+                                        N_positions=1)
         ra = ra[0]
         dec = dec[0]
 
@@ -466,6 +467,7 @@ class ConfusionLibrary():
         # extract the index 
         index = re.findall(r'\d+', file_intermediate)
         index = int(index[0])
+        
 
         # construct the method name dynamically
         method_name = f"save_level3_secondary"
@@ -774,8 +776,8 @@ class ConfusionLibrary():
                 ax.hist(_lib_fluxes[:, start_chan + n_chan * j], 
                         bins=np.linspace(0, _lib_fluxes.max(), int(_lib_fluxes.shape[0] / 25)), 
                         histtype='step', color=cmap(j / 6.0))  # 6.0 ensures proper color spacing
-                if xmax >= np.nanmax(_lib_fluxes[:, start_chan + n_chan * j]):
-                    xmax = np.nanmax(_lib_fluxes[:, start_chan + n_chan * j])
+                if xmax <= np.nanmax(_lib_fluxes[:, start_chan + n_chan * j]).value:
+                    xmax = np.nanmax(_lib_fluxes[:, start_chan + n_chan * j]).value
 
             ax.set_xlabel(r'$F_{\nu}$ ($\mu$Jy)', fontsize=15)
             ax.set_ylabel('Count', fontsize=14)
