@@ -25,6 +25,7 @@ import matplotlib.cm as cm
 import matplotlib.colorbar as colorbar
 from matplotlib.colors import Normalize
 from scipy.interpolate import interpn
+from matplotlib.backends.backend_pdf import PdfPages
 
 
 
@@ -578,7 +579,8 @@ class ConfusionLibrary():
                  hpdi, 
                  mean,
                  std,
-                 path_lib):
+                 path_lib, 
+                 output_pdf):
         """
         plot statistics of a given confusion library.
 
@@ -599,6 +601,9 @@ class ConfusionLibrary():
 
         path_lib: str,
                   path to the confusion library.
+
+        output_pdf: str,
+                    path of the output pdf file, saving plots.
 
 
         ----------
@@ -634,8 +639,7 @@ class ConfusionLibrary():
         wl = self.Channels['lambda_min'] + (self.Channels['lambda_max'] - self.Channels['lambda_min']) / 2
 
 
-        ## first plot: all confusion spectra and density plot
-        # Function for density scatter plot
+        # function for density scatter plot
         def density_scatter(x, y, ax=None, sort=True, bins=20, **kwargs):
             """
             Scatter plot colored by 2D histogram density.
@@ -673,69 +677,63 @@ class ConfusionLibrary():
             
             return ax
 
-        # Integration into your existing logic
-        fig1 = plt.figure(figsize=(10, 4))
+        with PdfPages(output_pdf) as pdf:
+            ## First plot: All confusion spectra and density plot
+            fig1 = plt.figure(figsize=(10, 4))
+            x = np.tile(wl, lib.shape[0])  # Flattened wavelength array
+            y = _lib_fluxes.flatten()      # Flattened flux array
 
-        # Example wavelength and flux arrays
-        x = np.tile(wl, lib.shape[0])  # Flattened wavelength array
-        y = _lib_fluxes.flatten()      # Flattened flux array
+            # Scatter plot
+            plt.subplot(1, 2, 1)
+            plt.scatter(x, y, s=1, alpha=0.05, color='black')
+            plt.xlabel(f'Wavelength {wl.unit}', fontsize=14)
+            plt.ylabel(r'$F_{{\nu}}$ [{}]'.format(_lib_fluxes.unit), fontsize=14)
 
-        # scatter plot of all spectra
-        plt.subplot(1, 2, 1)
-        plt.scatter(x, y, s=1, alpha=0.05, color='black')
-        plt.xlabel(f'Wavelength {wl.unit}', fontsize=14)
-        plt.ylabel(r'$F_{{\nu}}$ [{}]'.format(_lib_fluxes.unit), fontsize=14)
+            # Density plot
+            ax2 = plt.subplot(1, 2, 2)
+            density_scatter(x, y, ax=ax2, bins=50, cmap='plasma', s=20)
+            plt.xlabel(f'Wavelength {wl.unit}', fontsize=14)
+            plt.ylabel(r'$F_{{\nu}}$ [{}]'.format(_lib_fluxes.unit), fontsize=14)
+            plt.title("Zoomed-In Confusion Density Plot", fontsize=14)
+            plt.ylim(0, _lib_fluxes.value.max()/5)
+            fig1.tight_layout()
+            pdf.savefig(fig1)  # Save the first plot to PDF
+            plt.close(fig1)
 
-        # density plot
-        ax2 = plt.subplot(1, 2, 2)
-        density_scatter(x, y, ax=ax2, bins=50, cmap='plasma', s=20)
-        plt.xlabel(f'Wavelength {wl.unit}', fontsize=14)
-        plt.ylabel(r'$F_{{\nu}}$ [{}]'.format(_lib_fluxes.unit), fontsize=14)
-        plt.title("Zoomed-In Confusion Density Plot", fontsize=14)
-        plt.ylim(0, _lib_fluxes.value.max()/5)
-        fig1.tight_layout()
-        plt.show()
+            ## Second plot: Histograms of confusion fluxes
+            fig2, ax = plt.subplots(figsize=(9, 4))
+            n_chan = 7
+            start_chan = 12
+            cmap = plt.get_cmap('jet')
+            norm = Normalize(vmin=1, vmax=6)
 
+            for j in range(6):
+                ax.hist(_lib_fluxes[:, start_chan + n_chan * j], 
+                        bins=np.linspace(0, _lib_fluxes.max(), int(_lib_fluxes.shape[0] / 25)), 
+                        histtype='step', color=cmap(j / 6.0))  # 6.0 ensures proper color spacing
 
-        ## second plot: histograms of confusion fluxes
-        fig2 = plt.figure(figsize=(8,5))
-        n_chan = 7
-        start_chan = 12
-        cmap = plt.get_cmap('jet')
-        norm = Normalize(vmin=1, vmax=6)
+            ax.set_xlabel(r'$F_{\nu}$ ($\mu$Jy)', fontsize=15)
+            ax.set_ylabel('Count', fontsize=14)
+            ax.set_yscale("log")
+            ax.set_title("Confusion Library", fontsize=14)
+            sm = cm.ScalarMappable(cmap=cmap, norm=norm)
+            sm.set_array([])  # Required for ScalarMappable
+            cbar = plt.colorbar(sm, ax=ax)
+            cbar.set_label('Array index', fontsize=14)
+            fig2.tight_layout()
+            pdf.savefig(fig2)  # Save the second plot to PDF
+            plt.close(fig2)
 
-        fig, ax = plt.subplots(figsize=(9,4))
-        for j in range(6):
-            plt.hist(_lib_fluxes[:,start_chan + n_chan*j], 
-                     bins=np.linspace(0, _lib_fluxes.max(), int(_lib_fluxes.shape[0]/25)), 
-                     histtype='step', color=cmap(j / 6.0))  # 6.0 -- colors spaced correctly
+            ## Third plot: Confusion variation
+            fig3 = plt.figure(figsize=(6, 5))
+            plt.plot(wl, mean, label='mean', color='crimson', ls='-')
+            plt.plot(wl, hpdi, label='hpdi', color='blueviolet', ls='--', lw=2.5)
+            plt.plot(wl, std, label='std', color='royalblue', ls=':', lw=2.5)
+            plt.legend(fontsize=12)
+            plt.xlabel(f'Wavelength {wl.unit}', fontsize=14)
+            plt.ylabel(r'$F_{{\nu}}$ [{}]'.format(_lib_fluxes.unit), fontsize=14)
+            plt.title("Confusion Library Variation", fontsize=14)
+            fig3.tight_layout()
+            pdf.savefig(fig3)  # Save the third plot to PDF
 
-        ax.set_xlabel(r'$F_{\nu}$ ($\mu$Jy)', fontsize=15)
-        ax.set_ylabel('Count', fontsize=14)
-        plt.yscale("log")
-        plt.title("Confusion Library", fontsize=14)
-        sm = cm.ScalarMappable(cmap=cmap, norm=norm)
-        sm.set_array([])  # Required for ScalarMappable
-        cbar = plt.colorbar(sm, ax=ax)
-        cbar.set_label('Array index', fontsize=14)
-        fig2.tight_layout()
-        plt.show()
-
-
-
-        ## third plot: confusion variation
-        fig3 = plt.figure(figsize=(6,5))
-        plt.plot(wl, mean, label='mean', color='crimson',    ls='-')
-        plt.plot(wl, hpdi, label='hpdi', color='blueviolet', ls='--', lw=2.5)
-        plt.plot(wl, std,  label='std',  color='royalblue',  ls=':',  lw=2.5)
-        plt.legend(fontsize=12)
-        plt.xlabel(r"Wavelength ($\mu$m)", fontsize=14)
-        plt.ylabel(f"Confusion flux ({std.unit})"), fontsize=14
-        plt.title("Variation in the Confusion Library", fontsize=15)
-        fig3.tight_layout()
-        plt.show()
-
-
-
-
-
+        print(f"Plots have been saved to {output_pdf}.")
