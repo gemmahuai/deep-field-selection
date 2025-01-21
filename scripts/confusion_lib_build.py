@@ -1,6 +1,6 @@
 """
 
-generates confusion library from sub-threshold sources.
+tools to construct confusion library from sub-threshold sources.
 
 @author: gemmahuai
 01/20/2025
@@ -206,7 +206,7 @@ class ConfusionLibrary():
         
         return zero_sed
         
-        
+
     def __call__(self):
         
         ## generate zero sed
@@ -568,7 +568,7 @@ class ConfusionLibrary():
             lib_std = np.std(_lib_fluxes, axis=0)
 
             ## calculate HPDI
-            # Richard's code computing the highest posterior density interval (HPDI) of redshift PDF
+            # Richard's code computing the highest posterior density interval (HPDI) for redshift PDF
             def compute_hdpi(zs, z_likelihood, frac=0.68):
                 ''' 
                 This script computes the 1d highest posterior density interval. 
