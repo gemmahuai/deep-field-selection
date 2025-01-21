@@ -143,7 +143,7 @@ def photometer_single_src(args):
     SPHEREx_Catalog, Truth_Catalog= QC(Sources_to_Simulate, nmc=50)
 
     # collate output secondary photometry tables
-    file_inter = '/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data/secondary_phot_id{}_cntl'.format(k) + '.parq' # intermediate parquet file saving primary photometry
+    file_inter = '/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data_newcoord/secondary_phot_id{}_cntl'.format(k) + '.parq' # intermediate parquet file saving primary photometry
                 # save secondary photometry
     this = SPHEREx_Catalog['SOURCE_ID']==f"Central tID {int(tID_central)}"
     SPsky.save_level3_secondary(SPHEREx_Catalog[this], 
@@ -242,7 +242,7 @@ def photometer_single_src(args):
     time_end = time.time()
     print("\nTime elapsed = ", time_end - time_start)
     # collate output secondary photometry tables
-    file_inter = '/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data/secondary_phot_id{}.parq'.format(k) # intermediate parquet file saving primary photometry
+    file_inter = '/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data_newcoord/secondary_phot_id{}.parq'.format(k) # intermediate parquet file saving primary photometry
                 # save secondary photometry
     this = SPHEREx_Catalog['SOURCE_ID']==f"Central tID {int(tID_central)}"
     SPsky.save_level3_secondary(SPHEREx_Catalog[this], 
@@ -340,7 +340,7 @@ if __name__ == '__main__':
     max_cpu_percent = args.c 
     output_filename = args.o 
 
-    output_filename = "/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data/secondary_combined_to_photoz"
+    output_filename = "/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data_newcoord/secondary_combined_to_photoz"
 
     
 
@@ -354,8 +354,12 @@ if __name__ == '__main__':
     elat = data['ecliptic_lat'][idx]
     elon = 0 * u.deg # deg # longitude doesn't matter, assuming symmetric about NEP.
     crd = SkyCoord(elon, elat * u.deg, frame=BarycentricMeanEcliptic)  # NEP at (lon=0, lat=90)
-    ra0 = crd.transform_to('icrs').ra.deg
-    dec0 = crd.transform_to('icrs').dec.deg
+    # ra0 = crd.transform_to('icrs').ra.deg
+    # dec0 = crd.transform_to('icrs').dec.deg
+
+    ## Using Jean's, making sure flux error bars are consistent with previous runs.
+    ra0 = 269.1635687732342
+    dec0 = 65.22880368266544
     print('RA, DEC for the 100 obs / channel is ', ra0, dec0)
 
     # move COSMOS centered around this calculated coordinate pair.
@@ -381,7 +385,7 @@ if __name__ == '__main__':
     print("\nStart Parallel Processes...")
     ## Run parallel processing
     Time_start = time.time()
-    source_args = [(k+700, COSMOS_tab, flag_sub, SPHEREx_Pointings, SPHEREx_Instrument, Scene, output_filename) 
+    source_args = [(k, COSMOS_tab, flag_sub, SPHEREx_Pointings, SPHEREx_Instrument, Scene, output_filename) 
                    for k in range(N_patches)]
     parallel_process(func=photometer_single_src,
                      func_args=source_args, 
