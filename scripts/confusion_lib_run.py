@@ -7,20 +7,11 @@ generate confusion library from sub-threshold sources, from tools in confusion_l
 
 """
 
-import sys
-import astropy.units as u
 import numpy as np
-import matplotlib.pyplot as plt
-from astropy.table import Table, hstack
-from astropy.io import fits
-from astropy.coordinates import SkyCoord, Distance
-from astropy.coordinates import BarycentricMeanEcliptic
-import itertools
-from concurrent.futures import ProcessPoolExecutor
+from astropy.table import Table
 import multiprocessing as mp
 import time 
 import argparse
-import os
 from confusion_lib_build import ConfusionLibrary
 
 import SPHEREx_ObsSimulator as SPobs
@@ -28,8 +19,7 @@ from SPHEREx_Simulator_Tools import data_filename
 import SPHEREx_InstrumentSimulator as SPinst
 from spherex_parameters import load_spherex_parameters
 import SPHEREx_SkySimulator as SPsky
-from SPHEREx_SkySimulator import QuickCatalog
-from SPHEREx_SkySimulator import Catalog_to_Simulate
+
 
 survey_plan_file = data_filename('spherex_survey_plan_R2.fits')
 SPHEREx_Pointings = SPobs.Pointings(input_file=survey_plan_file, 
@@ -58,9 +48,11 @@ SPHEREx_Instrument = SPinst.Instrument(
 COSMOS_tab = Table.read('/Users/gemmahuai/Desktop/CalTech/SPHEREx/SPHEREx_2023/COSMOS2020_FARMER_R1_v2.1_p3_in_Richard_sim_2023Dec4.fits', format='fits')
 idx_refcat = np.loadtxt("/Users/gemmahuai/Desktop/CalTech/SPHEREx/source_selection/cosmos166k_posmatch_boolarray.txt", dtype=bool)
 
+# define channel bins
 wl = Channels['lambda_min'] + (Channels['lambda_max']-Channels['lambda_max'])/2
-# data dir
-DIR = "/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data/"
+
+# output data dir
+DIR = "/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/deep-field-phot-on-maps/data/"
 
 
 # # ---------------------------------------------------------------------
@@ -123,28 +115,51 @@ DIR = "/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data/"
 
 def run_single_job(args):
 
-    # TODO: finish coding the args list
-    (index, confusionlib, ...) = args
+    (index, confusionlib, output_filename) = args
+
+    print(f"\nIndex = {index}...")
 
     try:
         confusionlib.photometer_one_spot(index=index,
-                                        Npix=10,
-                                        Use_Tractor=True,
-                                        )
+                                         Npix=10,
+                                         Use_Tractor=True,
+                                         )
         
         # save secondary photometry into a combined file, 
         # discarding all individual intermediate secondary photometry file
         file_intermediate = DIR + f"secondary_{index}_del.parq"
-        confusionlib.collate_QuickCatalog_secondary(output_filename=DIR+"secondary_combined.parq",
+        confusionlib.collate_QuickCatalog_secondary(output_filename=DIR+output_filename,
                                                     file_intermediate=file_intermediate,
                                                     NewFile=(index==0))
-    except 
+        
+        print(f"     [{index}] Done!")
+        return None
+    
+    except:
+        print(f"     Photometry failed, index = {index}.")
+        return index
 
-    return None
     
 
-def parallel_process(func, func_args, max_cpu_percent):
-    # For the first N_sources sources
+def parallel_process(func, func_args, N_runs, max_cpu_percent):
+
+    """
+    Inputs:
+
+    func: function,
+        function to be parallelized.
+    
+    func_args: list,
+        Arguments passed to the function.
+    
+    N_runs: int,
+        Total number of runs of the given function.
+
+    max_cpu_percent: int,
+        Percentage of total CPU cores to be used.
+
+    
+    """
     
     total_cores = mp.cpu_count()
     max_workers = int(total_cores * max_cpu_percent / 100)
@@ -155,8 +170,8 @@ def parallel_process(func, func_args, max_cpu_percent):
     
     results_list = []
     
-    for start in range(0, N_patches, batchsize):
-        end = min(start+batchsize, N_patches)
+    for start in range(0, N_runs, batchsize):
+        end = min(start+batchsize, N_runs)
         batch_source_args = func_args[start:end]
     
         with mp.Pool(processes=max_workers) as pool:
@@ -172,8 +187,16 @@ def parallel_process(func, func_args, max_cpu_percent):
 
 if __name__ == '__main__':
 
+    ## set up parser
+    parser = argparse.ArgumentParser(description="Generating confusion library from sub-threshold sources, given catalog and seleciton cut.")
+    parser.add_argument('-N', type=int, required=True, help='Number of confusion spectra to generate.')
+    parser.add_argument('-c', type=int, required=True, help='CPU percentage to use, out of 14 cores.')
+    parser.add_argument('-o', type=str, required=True, help='output files name, will append file extension name')
+    args = parser.parse_args()
 
-    ### set up parser
+    N_srcs = args.N 
+    max_cpu_percent = args.c 
+    output_filename = args.o 
 
 
     # instantiate ConfusionLibrary
@@ -192,11 +215,13 @@ if __name__ == '__main__':
 
     # set up parallel job arguments
     # TODO: fill in more arguments...
-    source_args = [(k, COSMOS_tab, confusionlib, ...)]
+    source_args = [(index, confusionlib, output_filename)
+                   for index in range(N_srcs)]
 
-
-
-    
+    parallel_process(func=run_single_job,
+                     func_args=source_args,
+                     N_runs=N_srcs,
+                     max_cpu_percent=max_cpu_percent)
 
 
 

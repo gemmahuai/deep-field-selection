@@ -381,7 +381,7 @@ if __name__ == '__main__':
     print("\nStart Parallel Processes...")
     ## Run parallel processing
     Time_start = time.time()
-    source_args = [(k+500, COSMOS_tab, flag_sub, SPHEREx_Pointings, SPHEREx_Instrument, Scene, output_filename) 
+    source_args = [(k+700, COSMOS_tab, flag_sub, SPHEREx_Pointings, SPHEREx_Instrument, Scene, output_filename) 
                    for k in range(N_patches)]
     parallel_process(func=photometer_single_src,
                      func_args=source_args, 

@@ -297,8 +297,6 @@ class ConfusionLibrary():
         ra = ra[0]
         dec = dec[0]
 
-        print('\nRA = {}'.format(ra), 'DEC = {}'.format(dec))
-
         # select nearby sources
         size = 6.2*Npix/3600 # extent in deg
         ra_l = ra - size/2
@@ -333,7 +331,10 @@ class ConfusionLibrary():
                 near_rmv_idx = np.append(near_rmv_idx, near_idx[i])
                 near_rmv_og_idx = np.append(near_rmv_og_idx, near_og_idx[i])
                 near_rmv_ID = np.append(near_rmv_ID, near_ID[i])
-        print('  Number of sub-threshold neighbors = ', len(near_rmv_idx))
+        
+        if verbose is True:
+            print('\nRA = {}'.format(ra), 'DEC = {}'.format(dec))
+            print('  Number of sub-threshold neighbors = ', len(near_rmv_idx))
 
 
 
@@ -408,7 +409,7 @@ class ConfusionLibrary():
             print(f"QuickCatalog failed, skip this source {index} and return its ID ")
             return index # Return the simulation index for tracking
         
-        print(f'[Photometry {index}] Done.')
+        if verbose is True: print(f'[Photometry {index}] Done.')
 
 
     def collate_QuickCatalog_primary(self, output_filename):
@@ -514,7 +515,7 @@ class ConfusionLibrary():
         params_list = [source_ID, secondary_tbl['ra'][0], secondary_tbl['dec'][0]]
 
         # write / append to the output txt file as photoz input
-        print("writing to", output_filename)
+        # rint("writing to", output_filename)
         self.write_output(params_list, 
                           fluxes = f, 
                           flux_errs = fe, 
