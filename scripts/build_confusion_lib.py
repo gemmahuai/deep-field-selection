@@ -20,10 +20,12 @@ import SPHEREx_SkySimulator as SPsky
 from SPHEREx_SkySimulator import QuickCatalog
 from SPHEREx_SkySimulator import Catalog_to_Simulate
 
-
+from matplotlib import pyplot as plt
 import matplotlib.cm as cm
 import matplotlib.colorbar as colorbar
 from matplotlib.colors import Normalize
+from scipy.interpolate import interpn
+
 
 
 
@@ -631,5 +633,108 @@ class ConfusionLibrary():
             # in uJy
             _lib_fluxes = _lib_fluxes * u.uJy
 
+        wl = self.Channels['lambda_min'] + (self.Channels['lambda_max'] - self.Channels['lambda_min']) / 2
 
-        
+
+        ## first plot: all confusion spectra and density plot
+        # Function for density scatter plot
+        def density_scatter(x, y, ax=None, sort=True, bins=20, **kwargs):
+            """
+            Scatter plot colored by 2D histogram density.
+            """
+            if ax is None:
+                fig, ax = plt.subplots()
+            
+            # compute 2D histogram
+            data, x_e, y_e = np.histogram2d(x, y, bins=bins, density=True)
+            
+            # interpolate densities
+            z = interpn(
+                (0.5 * (x_e[1:] + x_e[:-1]), 0.5 * (y_e[1:] + y_e[:-1])),
+                data,
+                np.vstack([x, y]).T,
+                method="splinef2d",
+                bounds_error=False
+            )
+            
+            # replace NaNs with zeros
+            z[np.isnan(z)] = 0.0
+
+            # sort points by density for better visualization
+            if sort:
+                idx = z.argsort()
+                x, y, z = x[idx], y[idx], z[idx]
+            
+            # scatter plot with density coloring
+            scatter = ax.scatter(x, y, c=z, **kwargs)
+            
+            # colorbar
+            norm = Normalize(vmin=np.min(z), vmax=np.max(z))
+            cbar = plt.colorbar(cm.ScalarMappable(norm=norm, cmap=kwargs['cmap']), ax=ax)
+            cbar.ax.set_ylabel('N spectra', fontsize=12)
+            
+            return ax
+
+        # Integration into your existing logic
+        fig1 = plt.figure(figsize=(10, 4))
+
+        # Example wavelength and flux arrays
+        x = np.tile(wl, lib.shape[0])  # Flattened wavelength array
+        y = _lib_fluxes.flatten()      # Flattened flux array
+
+        # scatter plot of all spectra
+        plt.subplot(1, 2, 1)
+        plt.scatter(x, y, s=1, alpha=0.05, color='black')
+        plt.xlabel(f'Wavelength {wl.unit}', fontsize=14)
+        plt.ylabel(r'$F_{{\nu}}$ [{}]'.format(_lib_fluxes.unit), fontsize=14)
+
+        # density plot
+        ax2 = plt.subplot(1, 2, 2)
+        density_scatter(x, y, ax=ax2, bins=50, cmap='plasma', s=20)
+        plt.xlabel(f'Wavelength {wl.unit}', fontsize=14)
+        plt.ylabel(r'$F_{{\nu}}$ [{}]'.format(_lib_fluxes.unit), fontsize=14)
+        plt.title("Zoomed-In Confusion Density Plot", fontsize=14)
+        plt.ylim(0, _lib_fluxes.value.max()/5)
+        fig1.tight_layout()
+        plt.show()
+
+
+        ## second plot: histograms of confusion fluxes
+        fig2 = plt.figure(figsize=(8,5))
+        n_chan = 7
+        start_chan = 12
+        cmap = plt.get_cmap('jet')
+        norm = Normalize(vmin=1, vmax=6)
+
+        fig, ax = plt.subplots(figsize=(9,4))
+        for j in range(6):
+            plt.hist(_lib_fluxes[:,start_chan + n_chan*j], 
+                     bins=np.linspace(0, _lib_fluxes.max(), int(_lib_fluxes.shape[0]/25)), 
+                     histtype='step', color=cmap(j / 6.0))  # 6.0 -- colors spaced correctly
+
+        ax.set_xlabel(r'$F_{\nu}$ ($\mu$Jy)', fontsize=15)
+        ax.set_ylabel('Count', fontsize=14)
+        plt.yscale("log")
+        plt.title("Confusion Library", fontsize=14)
+        sm = cm.ScalarMappable(cmap=cmap, norm=norm)
+        sm.set_array([])  # Required for ScalarMappable
+        cbar = plt.colorbar(sm, ax=ax)
+        cbar.set_label('Array index', fontsize=14)
+        fig2.tight_layout()
+        plt.show()
+
+
+
+        ## third plot: confusion variation
+        fig3 = plt.figure(figsize=(6,5))
+        plt.plot(wl, mean, label='mean', color='crimson',    ls='-')
+        plt.plot(wl, hpdi, label='hpdi', color='blueviolet', ls='--', lw=2.5)
+        plt.plot(wl, std,  label='std',  color='royalblue',  ls=':',  lw=2.5)
+        plt.legend(fontsize=12)
+        fig3.tight_layout()
+        plt.show()
+
+
+
+
+
