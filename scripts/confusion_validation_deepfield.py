@@ -143,7 +143,7 @@ def photometer_single_src(args):
     SPHEREx_Catalog, Truth_Catalog= QC(Sources_to_Simulate, nmc=50)
 
     # collate output secondary photometry tables
-    file_inter = '/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data_newcoord/secondary_phot_id{}_cntl'.format(k) + '.parq' # intermediate parquet file saving primary photometry
+    file_inter = '/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data/secondary_phot_id{}_cntl'.format(k+2000) + '.parq' # intermediate parquet file saving primary photometry
                 # save secondary photometry
     this = SPHEREx_Catalog['SOURCE_ID']==f"Central tID {int(tID_central)}"
     SPsky.save_level3_secondary(SPHEREx_Catalog[this], 
@@ -152,7 +152,7 @@ def photometer_single_src(args):
                                 file_inter, 
                                 pointing_table=SPHEREx_Pointings.pointing_table, 
                                 fluxerr_from_weights=True)
-    secondary_tbl = Table.read(file_inter, format="parquet")
+    # secondary_tbl = Table.read(file_inter, format="parquet")
     time_end = time.time()
     print("\nTime elapsed = ", time_end - time_start)
 
@@ -242,7 +242,7 @@ def photometer_single_src(args):
     time_end = time.time()
     print("\nTime elapsed = ", time_end - time_start)
     # collate output secondary photometry tables
-    file_inter = '/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data_newcoord/secondary_phot_id{}.parq'.format(k) # intermediate parquet file saving primary photometry
+    file_inter = '/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data/secondary_phot_id{}.parq'.format(k+2000) # intermediate parquet file saving primary photometry
                 # save secondary photometry
     this = SPHEREx_Catalog['SOURCE_ID']==f"Central tID {int(tID_central)}"
     SPsky.save_level3_secondary(SPHEREx_Catalog[this], 
@@ -251,7 +251,7 @@ def photometer_single_src(args):
                                 file_inter, 
                                 pointing_table=SPHEREx_Pointings.pointing_table, 
                                 fluxerr_from_weights=True)
-    secondary_tbl_confusion = Table.read(file_inter, format="parquet")
+    # secondary_tbl_confusion = Table.read(file_inter, format="parquet")
 
 
     # ## save secondary photometry into photo-z input format
@@ -340,7 +340,7 @@ if __name__ == '__main__':
     max_cpu_percent = args.c 
     output_filename = args.o 
 
-    output_filename = "/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data_newcoord/secondary_combined_to_photoz"
+    output_filename = "/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data/secondary_combined_to_photoz"
 
     
 
@@ -354,12 +354,12 @@ if __name__ == '__main__':
     elat = data['ecliptic_lat'][idx]
     elon = 0 * u.deg # deg # longitude doesn't matter, assuming symmetric about NEP.
     crd = SkyCoord(elon, elat * u.deg, frame=BarycentricMeanEcliptic)  # NEP at (lon=0, lat=90)
-    # ra0 = crd.transform_to('icrs').ra.deg
-    # dec0 = crd.transform_to('icrs').dec.deg
+    ra0 = crd.transform_to('icrs').ra.deg
+    dec0 = crd.transform_to('icrs').dec.deg
 
-    ## Using Jean's, making sure flux error bars are consistent with previous runs.
-    ra0 = 269.1635687732342
-    dec0 = 65.22880368266544
+    # ## Using Jean's, making sure flux error bars are consistent with previous runs.
+    # ra0 = 269.1635687732342
+    # dec0 = 65.22880368266544
     print('RA, DEC for the 100 obs / channel is ', ra0, dec0)
 
     # move COSMOS centered around this calculated coordinate pair.
@@ -370,10 +370,10 @@ if __name__ == '__main__':
         COSMOS_tab.add_column((COSMOS_tab['DELTA_J2000'].copy() + (dec0 - dec_c)), name="dec_deep")
 
     ## select a subsample surrounding the chosen coordinate pair ~ 0.2 * 0.2 deg^2 area --> 1k refcat sources
-    ra_min = ra0 - 0.1
-    ra_max = ra0 + 0.1
-    dec_min = dec0 - 0.1
-    dec_max = dec0 + 0.1
+    ra_min = ra0 + 0.1
+    ra_max = ra0 + 0.25
+    dec_min = dec0 + 0.1
+    dec_max = dec0 + 0.25
     ## count number of cosmology sources in the patch
     flag_sub = (COSMOS_tab['ra_deep']>=ra_min) & \
             (COSMOS_tab['ra_deep']<=ra_max) & \
