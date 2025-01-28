@@ -16,6 +16,7 @@ import numpy as np
 import astropy.units as u
 from astropy.table import Table
 from astropy.io import fits
+import pandas as pd
 
 import SPHEREx_SkySimulator as SPsky
 from SPHEREx_SkySimulator import QuickCatalog
@@ -806,3 +807,58 @@ class ConfusionLibrary():
             pdf.savefig(fig3)  # Save the third plot to PDF
 
         print(f"Plots have been saved to {output_pdf}.")
+
+
+    def plot_with_sensitivity(self, 
+                              path_lib,
+                              intensity_mapper_sheet):
+        """
+        Compares variations in the confusion library with SPHEREx sensitivities
+
+        ----------
+        Inputs:
+
+        path_lib: str,
+            Filepath to the confusion library.
+
+        intensity_mapper_sheet: str,
+            Filepath to the SPHEREx intensity mapper datasheet,
+            documenting instrument facts.
+
+        ----------
+        Returns:
+
+        plots the confusion 1, 2, 3 sigma variation and SPHEREx 
+        deep-field and full-sky sensitivity.
+        
+        """
+
+        # load the confusion library
+        lib = np.loadtxt(path_lib)
+
+        # check dimensions
+        if len(lib.shape) != 2:
+            raise ValueError("Mismatched dimension in the provided confusion library!")
+
+        n_cols = lib.shape[1]
+        col_start = n_cols - 204
+
+        # extract fluxes from the library, flux errors not useful here.
+        _lib_fluxes = lib[:, col_start::2] 
+
+        # determine flux units
+        if _lib_fluxes.mean() < 0.1:
+            # must be in mJy
+            _lib_fluxes = _lib_fluxes * u.mJy
+        else:
+            # in uJy
+            _lib_fluxes = _lib_fluxes * u.uJy
+
+        wl = self.Channels['lambda_min'] + (self.Channels['lambda_max'] - self.Channels['lambda_min']) / 2
+
+        # calculate library variation
+        lib_1sigma = np.nanstd(_fluxes, axis=0)
+
+        fig = plt.figure(figsize=(6,5))
+        plt.plot(wl, lib_1simga, )
+

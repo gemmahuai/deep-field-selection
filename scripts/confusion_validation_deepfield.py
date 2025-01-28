@@ -143,7 +143,7 @@ def photometer_single_src(args):
     SPHEREx_Catalog, Truth_Catalog= QC(Sources_to_Simulate, nmc=50)
 
     # collate output secondary photometry tables
-    file_inter = '/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data/secondary_phot_id{}_cntl'.format(k+2000) + '.parq' # intermediate parquet file saving primary photometry
+    file_inter = '/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data/secondary_phot_id{}_cntl'.format(k+3000) + '.parq' # intermediate parquet file saving primary photometry
                 # save secondary photometry
     this = SPHEREx_Catalog['SOURCE_ID']==f"Central tID {int(tID_central)}"
     SPsky.save_level3_secondary(SPHEREx_Catalog[this], 
@@ -242,7 +242,7 @@ def photometer_single_src(args):
     time_end = time.time()
     print("\nTime elapsed = ", time_end - time_start)
     # collate output secondary photometry tables
-    file_inter = '/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data/secondary_phot_id{}.parq'.format(k+2000) # intermediate parquet file saving primary photometry
+    file_inter = '/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data/secondary_phot_id{}.parq'.format(k+3000) # intermediate parquet file saving primary photometry
                 # save secondary photometry
     this = SPHEREx_Catalog['SOURCE_ID']==f"Central tID {int(tID_central)}"
     SPsky.save_level3_secondary(SPHEREx_Catalog[this], 
@@ -370,10 +370,11 @@ if __name__ == '__main__':
         COSMOS_tab.add_column((COSMOS_tab['DELTA_J2000'].copy() + (dec0 - dec_c)), name="dec_deep")
 
     ## select a subsample surrounding the chosen coordinate pair ~ 0.2 * 0.2 deg^2 area --> 1k refcat sources
-    ra_min = ra0 + 0.1
-    ra_max = ra0 + 0.25
-    dec_min = dec0 + 0.1
-    dec_max = dec0 + 0.25
+    ra_min = ra0 + 0.25
+    ra_max = ra0 + 0.5
+    dec_min = dec0 + 0.25
+    dec_max = dec0 + 0.5 # 1380 total from 0.25 to 0.5
+    # -0.3 - -0.1
     ## count number of cosmology sources in the patch
     flag_sub = (COSMOS_tab['ra_deep']>=ra_min) & \
             (COSMOS_tab['ra_deep']<=ra_max) & \
@@ -385,7 +386,7 @@ if __name__ == '__main__':
     print("\nStart Parallel Processes...")
     ## Run parallel processing
     Time_start = time.time()
-    source_args = [(k, COSMOS_tab, flag_sub, SPHEREx_Pointings, SPHEREx_Instrument, Scene, output_filename) 
+    source_args = [(k+800, COSMOS_tab, flag_sub, SPHEREx_Pointings, SPHEREx_Instrument, Scene, output_filename) 
                    for k in range(N_patches)]
     parallel_process(func=photometer_single_src,
                      func_args=source_args, 
