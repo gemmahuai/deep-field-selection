@@ -156,23 +156,25 @@ def process_source(source_data):
      SPHEREx_Pointings, SPHEREx_Instrument, Scene, output_filename) = source_data
 
 
+    ## select sources from Jean's 8k sources (match) that meet the given selection cut (idx_refcat)
     print(f"\n{i}")
-    ra = COSMOS_tab[ra_colname][idx_refcat][i]
-    dec = COSMOS_tab[dec_colname][idx_refcat][i]
+    ra = COSMOS_tab[ra_colname][idx_refcat & COSMOS_tab['match']][i]
+    dec = COSMOS_tab[dec_colname][idx_refcat & COSMOS_tab['match']][i]
 
+    source_ID = COSMOS_tab["col1"][idx_refcat & COSMOS_tab['match']][i] # pre-ID 
+    tractorID = COSMOS_tab['Tractor_ID'][idx_refcat & COSMOS_tab['match']][i]
 
-    source_ID = COSMOS_tab["col1"][idx_refcat][i] # pre-ID 
-    tractorID = COSMOS_tab['Tractor_ID'][idx_refcat][i]
     # find input hires sed
     sed_path = find_sed_fits_file_corrected(source_ID, tractorID)
 
     print(f"    tractor ID for {i} = ", tractorID, " sed file ", sed_path)
 
 
-    ### set up timer for timeout session
+    ## set up timer for timeout session
     signal.signal(signal.SIGALRM, handler)
     timeout_duration = 1000 # seconds
     signal.alarm(timeout_duration)
+
 
     try:
         # initialize QuickCatalog, only forced photometry, no Tractor
@@ -325,14 +327,21 @@ if __name__ == '__main__':
     start_index = int(sys.argv[4])
     combine_prim_phot = int(sys.argv[5]) # 0: not combine; 1: combine primary photometry
 
-    # ------------------- Inputs -------------------------
+    # ----------------------- Inputs -------------------------------
 
-    COSMOS_tab = Table.read('/Users/gemmahuai/Desktop/CalTech/SPHEREx/SPHEREx_2023/COSMOS2020_FARMER_R1_v2.1_p3_in_Richard_sim_2023Dec4.fits', format='fits')
-    ra_colname = "ALPHA_J2000"
-    dec_colname = "DELTA_J2000"
+    # COSMOS_tab = Table.read('/Users/gemmahuai/Desktop/CalTech/SPHEREx/SPHEREx_2023/COSMOS2020_FARMER_R1_v2.1_p3_in_Richard_sim_2023Dec4.fits', format='fits')
+    COSMOS_tab = Table.read("/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data/refcat_cuts/COSMOS2020_SPHEXrefcat_v0.6_166k_matched_Jean8k.csv")
+    ra_colname = "ra_deep"
+    dec_colname = "dec_deep"
 
-    idx_refcat = np.loadtxt("/Users/gemmahuai/Desktop/CalTech/SPHEREx/source_selection/cosmos166k_posmatch_boolarray.txt", dtype=bool)
+    # idx_refcat = np.loadtxt("/Users/gemmahuai/Desktop/CalTech/SPHEREx/source_selection/cosmos166k_posmatch_boolarray.txt", dtype=bool)
+    idx_refcat = np.loadtxt("/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data/refcat_cuts/boolean_cut_0.2.txt", dtype=bool)
 
+
+    # ------------------- Start Simulation -------------------------
+
+    # Down-select from Jean's 8k catalog randomly.
+    np.
 
     source_args = [(k, COSMOS_tab, idx_refcat, ra_colname, dec_colname,
                     SPHEREx_Pointings, SPHEREx_Instrument, Scene,
