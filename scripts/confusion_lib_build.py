@@ -823,7 +823,7 @@ class ConfusionLibrary():
 
         intensity_mapper_sheet: str,
             Filepath to the SPHEREx intensity mapper datasheet,
-            documenting instrument facts.
+            with instrument specifications.
 
         ----------
         Returns:

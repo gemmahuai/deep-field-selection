@@ -15,6 +15,7 @@ from astropy.table import hstack, Table
 from astropy.io import fits
 import astropy.units as u
 from pyarrow import parquet
+from astropy.coordinates import SkyCoord, Distance
 
 import os
 import sys
@@ -145,6 +146,30 @@ def find_sed_fits_file_GAMA(uberID):
     return filename
 
 
+def calc_source_separation(RA, DEC):
+    """
+    RA, DEC = numpy arrays of ra, dec
+    
+    calculates the distance to nearest neighbors for given sources
+    
+    """
+    nearest_distances = []
+    coords = SkyCoord(ra=RA * u.deg, dec=DEC * u.deg, frame='icrs')
+
+    # calculate the angular separation to find nearest neighbors
+    for ii, coord in enumerate(coords):
+        separations = coord.separation(coords)
+        separations[ii] = np.inf
+
+        # find the minimum separation, which is the nearest neighbor
+        nearest_distance = np.min(separations).to("arcsec").value
+        nearest_distances.append(nearest_distance)
+
+    nearest_distances = np.array(nearest_distances)
+    
+    return nearest_distances
+
+
 
 # --------------------------------------------------------------------------------
 ### Main parallel jobs 
@@ -158,11 +183,15 @@ def process_source(source_data):
 
     ## select sources from Jean's 8k sources (match) that meet the given selection cut (idx_refcat)
     print(f"\n{i}")
-    ra = COSMOS_tab[ra_colname][idx_refcat & COSMOS_tab['match']][i]
-    dec = COSMOS_tab[dec_colname][idx_refcat & COSMOS_tab['match']][i]
+    match = COSMOS_tab['match'] == 'True'
+    cosmology = COSMOS_tab['COSMOLOGY'] == 1
+    xmatch = COSMOS_tab['xmatched_LS_110k']==1
 
-    source_ID = COSMOS_tab["col1"][idx_refcat & COSMOS_tab['match']][i] # pre-ID 
-    tractorID = COSMOS_tab['Tractor_ID'][idx_refcat & COSMOS_tab['match']][i]
+    ra = COSMOS_tab[ra_colname][idx_refcat & (~cosmology) & match][i]
+    dec = COSMOS_tab[dec_colname][idx_refcat & (~cosmology) & match][i]
+
+    tractorID = COSMOS_tab['Tractor_ID'][idx_refcat & (~cosmology) & match][i]
+    source_ID = np.where(COSMOS_tab["Tractor_ID"] == tractorID)[0][0] # index among 166k
 
     # find input hires sed
     sed_path = find_sed_fits_file_corrected(source_ID, tractorID)
@@ -172,7 +201,7 @@ def process_source(source_data):
 
     ## set up timer for timeout session
     signal.signal(signal.SIGALRM, handler)
-    timeout_duration = 1000 # seconds
+    timeout_duration = 2000 # seconds
     signal.alarm(timeout_duration)
 
 
@@ -189,25 +218,26 @@ def process_source(source_data):
                                               dec=dec*u.deg,
                                               inputpath=sed_path)
         
-        ## add nearby photometered sources (< 4 SPHEREx pixels)
+        ## add nearby photometered sources, from xmatched 110k catalog (< 4 SPHEREx pixels)
         size = 4 * 6.2 / 3600 # deg 
-        idx_close = np.where((COSMOS_tab[ra_colname][idx_refcat] <= (ra+size)) &
-                             (COSMOS_tab[ra_colname][idx_refcat] >= (ra-size)) &
-                             (COSMOS_tab[dec_colname][idx_refcat] <= (dec+size)) &
-                             (COSMOS_tab[dec_colname][idx_refcat] >= (dec-size)))[0]
+        cosmology = (COSMOS_tab['COSMOLOGY'] == 1)
+        idx_close = np.where((COSMOS_tab[ra_colname][idx_refcat & xmatch] <= (ra+size)) &
+                             (COSMOS_tab[ra_colname][idx_refcat & xmatch] >= (ra-size)) &
+                             (COSMOS_tab[dec_colname][idx_refcat & xmatch] <= (dec+size)) &
+                             (COSMOS_tab[dec_colname][idx_refcat & xmatch] >= (dec-size)))[0]
         print("   Number of nearby photometered sources  = ", len(idx_close))
 
         ## add into QC to photometer
         for idx in idx_close:
 
-            if COSMOS_tab['Tractor_ID'][idx_refcat][idx] == tractorID:
+            if COSMOS_tab['Tractor_ID'][idx_refcat & xmatch][idx] == tractorID:
                 # skip the primary central source itself
                 continue
 
-            ra_this = COSMOS_tab[ra_colname][idx_refcat][idx]
-            dec_this = COSMOS_tab[dec_colname][idx_refcat][idx]
-            source_ID_this = COSMOS_tab["col1"][idx_refcat][idx] # pre-ID 
-            tractorID_this = COSMOS_tab['Tractor_ID'][idx_refcat][idx]
+            ra_this = COSMOS_tab[ra_colname][idx_refcat & xmatch][idx]
+            dec_this = COSMOS_tab[dec_colname][idx_refcat & xmatch][idx]
+            tractorID_this = COSMOS_tab['Tractor_ID'][idx_refcat & xmatch][idx]
+            source_ID_this = np.where(COSMOS_tab["Tractor_ID"] == tractorID_this)[0][0] # index among 166k
 
             sed_this = find_sed_fits_file_corrected(source_ID_this, tractorID_this)
             print("   tractor ID ", tractorID_this, "sed file ", sed_this)
@@ -215,7 +245,12 @@ def process_source(source_data):
                                             ra=ra_this*u.deg, 
                                             dec=dec_this*u.deg,
                                             inputpath=sed_this)
-            
+        # calculate distance to nearest neighbors
+        sep = calc_source_separation(COSMOS_tab['ra'][idx_refcat & xmatch][idx_close], 
+                                     COSMOS_tab['dec'][idx_refcat & xmatch][idx_close])
+        print('smallest separation = ', np.nanmin(sep), ' arcsec')
+        print('   ', sep)
+
         print("photometry with QC...")
         # photometry
         SPHEREx_Catalog, Truth_Catalog = QC(Sources_to_Simulate) 
@@ -322,7 +357,7 @@ if __name__ == '__main__':
     N_sources = int(sys.argv[1])
     # Set maximum CPU usage
     max_cpu_percent = int(sys.argv[2])
-    output_filename = str(sys.argv[3])
+    output_filename = str(sys.argv[3]) # txt extension
     # starting index in the COSMOS 166k catalog
     start_index = int(sys.argv[4])
     combine_prim_phot = int(sys.argv[5]) # 0: not combine; 1: combine primary photometry
@@ -331,22 +366,44 @@ if __name__ == '__main__':
 
     # COSMOS_tab = Table.read('/Users/gemmahuai/Desktop/CalTech/SPHEREx/SPHEREx_2023/COSMOS2020_FARMER_R1_v2.1_p3_in_Richard_sim_2023Dec4.fits', format='fits')
     COSMOS_tab = Table.read("/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data/refcat_cuts/COSMOS2020_SPHEXrefcat_v0.6_166k_matched_Jean8k.csv")
-    ra_colname = "ra_deep"
-    dec_colname = "dec_deep"
+    ra_colname = "ra"
+    dec_colname = "dec"
 
     # idx_refcat = np.loadtxt("/Users/gemmahuai/Desktop/CalTech/SPHEREx/source_selection/cosmos166k_posmatch_boolarray.txt", dtype=bool)
-    idx_refcat = np.loadtxt("/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data/refcat_cuts/boolean_cut_0.2.txt", dtype=bool)
+    idx_refcat = np.loadtxt("/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data/refcat_cuts/boolean_cut_0.2.txt", 
+                            dtype=bool, skiprows=2)
 
 
     # ------------------- Start Simulation -------------------------
 
-    # Down-select from Jean's 8k catalog randomly.
-    np.
+    # Down-select from Jean's 8k catalog + refcat randomly.
+    match = COSMOS_tab['match'] == 'True'
+    cosmology = (COSMOS_tab['COSMOLOGY'] == 1) # full sky cut
+    rand_ids = np.random.randint(low=0,
+                                 high=len(COSMOS_tab[match & (~cosmology) & idx_refcat]),
+                                 size=N_sources)
+    print(len(idx_refcat), len(match))
 
+    # ## plot and check refcat selection
+    # def get_mag_from_flux(flux_Jy):
+    #     mag = -2.5 * np.log10(flux_Jy / 3631)
+    #     return mag
+
+    # mag_w1 = get_mag_from_flux(COSMOS_tab['LS_W1'] / 1e6)
+    # mag_z  = get_mag_from_flux(COSMOS_tab['LS_z']  / 1e6)
+
+    # fig = plt.figure(figsize=(6,5))
+    # plt.scatter(mag_z, mag_z - mag_w1, s=1, alpha=0.1)
+    # plt.scatter(mag_z[match], mag_z[match] - mag_w1[match], s=1, color='black')
+    # plt.scatter(mag_z[match & idx_refcat], mag_z[match & idx_refcat] - mag_w1[match & idx_refcat], s=1, color='red')
+    # plt.scatter(mag_z[match & idx_refcat][rand_ids], mag_z[match & idx_refcat][rand_ids] - mag_w1[match & idx_refcat][rand_ids], s=10, color='green')
+    # plt.show()
+
+    # constrcut argument list passed to process per source function
     source_args = [(k, COSMOS_tab, idx_refcat, ra_colname, dec_colname,
                     SPHEREx_Pointings, SPHEREx_Instrument, Scene,
                     output_filename)
-                    for k in range(N_sources)]
+                    for k in rand_ids]
 
     # Run parallel processing
     results = parallel_process(func=process_source,
@@ -373,7 +430,7 @@ if __name__ == '__main__':
         files_parq_sorted = sorted(files_parq, key=lambda x: int(x.split('id')[-1].split('.parq')[0]))
 
         # combine the table
-        output_combined_parq_name = output_filename.split(".parq")[0] + "_combined.parq"
+        output_combined_parq_name = output_filename.split(".txt")[0] + "_primary_combined.parq"
         remove = False # if remove is True, remove individual primary photometry parquet files
         tab_C = None # initialize the combined table
         for i, file in enumerate(files_parq_sorted):

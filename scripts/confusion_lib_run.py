@@ -7,6 +7,7 @@ generate confusion library from sub-threshold sources, from tools in confusion_l
 
 """
 
+import os
 import numpy as np
 from astropy.table import Table
 import multiprocessing as mp
@@ -38,21 +39,11 @@ SPHEREx_Instrument = SPinst.Instrument(
     psf=data_filename("psf/simulated_PSF_database_centered_v3_og.fits"),
     psf_downsample_by_array={1: ds, 2: ds, 3: ds, 4: ds, 5: ds, 6: ds},
     psf_trim_by_array={1: trim, 2: trim, 3: trim, 4: trim, 5: trim, 6: trim},
-    noise_model=SPinst.white_noise,
-    dark_current_model=SPinst.poisson_dark_current,
+    # noise_model=SPinst.white_noise,
+    # dark_current_model=SPinst.poisson_dark_current,
     lvf_model=SPinst.Tabular_Bandpass()
 )
 
-# ---------------------------------------------------------------------
-### input catalogs and refcat cut
-COSMOS_tab = Table.read('/Users/gemmahuai/Desktop/CalTech/SPHEREx/SPHEREx_2023/COSMOS2020_FARMER_R1_v2.1_p3_in_Richard_sim_2023Dec4.fits', format='fits')
-idx_refcat = np.loadtxt("/Users/gemmahuai/Desktop/CalTech/SPHEREx/source_selection/cosmos166k_posmatch_boolarray.txt", dtype=bool)
-
-# define channel bins
-wl = Channels['lambda_min'] + (Channels['lambda_max']-Channels['lambda_max'])/2
-
-# output data dir
-DIR = "/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/deep-field-phot-on-maps/data/"
 
 
 # # ---------------------------------------------------------------------
@@ -119,6 +110,13 @@ def run_single_job(args):
 
     print(f"\nIndex = {index}...")
 
+    # construct output directory
+    split = output_filename.split("/")
+    DIR = os.path.join('/', split[1])
+    for s in split[2:-1]:
+        DIR = os.path.join(DIR, s)
+    print("DIR = ", DIR)
+
     try:
         confusionlib.photometer_one_spot(index=index,
                                          Npix=10,
@@ -127,8 +125,8 @@ def run_single_job(args):
         
         # save secondary photometry into a combined file, 
         # discarding all individual intermediate secondary photometry file
-        file_intermediate = DIR + f"secondary_{index}_del.parq"
-        confusionlib.collate_QuickCatalog_secondary(output_filename=DIR+output_filename,
+        file_intermediate = os.path.join(DIR, f"secondary_{index}_del.parq")
+        confusionlib.collate_QuickCatalog_secondary(output_filename=output_filename,
                                                     file_intermediate=file_intermediate,
                                                     NewFile=(index==0))
         
@@ -191,12 +189,33 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Generating confusion library from sub-threshold sources, given catalog and seleciton cut.")
     parser.add_argument('-N', type=int, required=True, help='Number of confusion spectra to generate.')
     parser.add_argument('-c', type=int, required=True, help='CPU percentage to use, out of 14 cores.')
-    parser.add_argument('-o', type=str, required=True, help='output files name, will append file extension name')
+    parser.add_argument('-i', type=str, required=True, help="input color-mag cut, path to the boolean array text file.")
+    parser.add_argument('-o', type=str, required=True, help='output path + filename, will append file extension name later')
     args = parser.parse_args()
 
     N_srcs = args.N 
     max_cpu_percent = args.c 
+    input_filename = args.i
     output_filename = args.o 
+    print("\n", N_srcs, max_cpu_percent, input_filename, output_filename)
+
+
+
+    ## input catalogs and refcat cut 
+    COSMOS_tab = Table.read('/Users/gemmahuai/Desktop/CalTech/SPHEREx/SPHEREx_2023/COSMOS2020_FARMER_R1_v2.1_p3_in_Richard_sim_2023Dec4.fits', format='fits')
+    idx_refcat = np.loadtxt(input_filename, dtype=bool)
+
+    # define channel bins
+    wl = Channels['lambda_min'] + (Channels['lambda_max']-Channels['lambda_max'])/2
+
+    # output data dir
+    # DIR = "/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/deep-field-phot-on-maps/data/"
+    split = output_filename.split("/")
+    DIR = os.path.join('/', split[1])
+    for s in split[2:-1]:
+        DIR = os.path.join(DIR, s)
+    print("DIR = ", DIR)
+
 
 
     # instantiate ConfusionLibrary
@@ -214,7 +233,6 @@ if __name__ == '__main__':
     confusionlib()
 
     # set up parallel job arguments
-    # TODO: fill in more arguments...
     source_args = [(index, confusionlib, output_filename)
                    for index in range(N_srcs)]
 
@@ -223,6 +241,7 @@ if __name__ == '__main__':
                      N_runs=N_srcs,
                      max_cpu_percent=max_cpu_percent)
 
+    print("Done building the confusion library.")
 
 
 
