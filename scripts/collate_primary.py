@@ -1,5 +1,6 @@
-# collect all primary photometry fits table and scale from 3 month to 2 year survey
-# write combined secondary photometry into a text file that can be passed to Photo-z
+# collect all primary photometry fits table and scale from 3 month to 2 year survey;
+# write combined secondary photometry into a text file that can be passed to Photo-z.
+
 # gemmahuai 02/03/25
 
 import numpy as np
@@ -14,7 +15,7 @@ import SPHEREx_SkySimulator as SPsky
 from spherex_parameters import load_spherex_parameters
 from SPHEREx_SkySimulator import QuickCatalog, Catalog_to_Simulate
 
-survey_plan_file = "/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data/survey_plan/spherex_survey_plan_R3_trunc3month.fits"
+survey_plan_file = "/work2/09746/gemmah0521/frontera/sims/deepfield_sim/data//survey_plan/spherex_survey_plan_R3_trunc3month.fits"
 SPHEREx_Pointings = SPobs.Pointings(input_file = survey_plan_file,
                                    Gaussian_jitter=0., 
                                    roll_angle='psi2')
@@ -25,7 +26,7 @@ Scene = SPsky.Scene(SPHEREx_Pointings,
 
 SPHEREx_Instrument = SPinst.Instrument(
     instrument_data=spherex_parameters,
-    psf=data_filename("psf/simulated_PSF_database_centered_v3_og.fits"),
+    psf=data_filename("psf/simulated_PSF_database_centered_v3.fits"),
     psf_downsample_by_array={1: 4, 2: 4, 3: 4, 4: 4, 5: 4, 6: 4},
     psf_trim_by_array={1: 32, 2: 32, 3: 32, 4: 32, 5: 32, 6: 32},
     noise_model=SPinst.white_noise,
@@ -72,8 +73,8 @@ def write_output_to_photoz(flux, flux_err, source_id, ra, dec, filename, NewFile
 
 
 ### find all primary photometry fits tables
-
-directory = '/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data/QCoutput/'
+# on TACC
+directory = '/work2/09746/gemmah0521/frontera/sims/deepfield_sim/data/QCoutput/'
 name = 'primary_phot' # files starting with 'primary' 
  
 files = os.listdir(directory)
@@ -86,13 +87,11 @@ files_sorted = sorted(filenames, key=lambda x: int(x.split('id')[-1].split('.fit
 ### for each, calculate original secondary photometry, save flux errors
 
 ## output directory
-secondary_dir = "/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data/blended_QC/"
+secondary_dir = "/work2/09746/gemmah0521/frontera/sims/deepfield_sim/data/intermediate_files/"
 ra_colname = 'ra_deep'
 dec_colname = 'dec_deep'
-output_filename = "/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data/QCoutput/secondary_phot_combined_noAri.txt"
-plot = False
+output_filename = "/work2/09746/gemmah0521/frontera/sims/deepfield_sim/data/QCoutput/secondary_phot_combined_noAri.txt"
 
-f = 2
 
 ## Z-score calculation later
 F_2yr = []
@@ -197,8 +196,8 @@ for f in range(len(files_sorted)):
     count += 1
     
 
-F_2yr = np.array(F_2yr)
-F_truth = np.array(F_truth)
-Fe_scaled = np.array(Fe_scaled)
+# F_2yr = np.array(F_2yr)
+# F_truth = np.array(F_truth)
+# Fe_scaled = np.array(Fe_scaled)
 
 

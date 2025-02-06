@@ -24,8 +24,8 @@ output_phot=$5
 
 ### Inputs
 # Pull the combined secondary photometry file from TACC, with scaled error bars, but no injection yet
-DIR="/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/deep-field-phot-on-maps/data/"
-input_phot=$DIR+"secondary_combined_noAri.txt"
+DIR="/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/deep-field-phot-on-maps/data/secondary/"
+input_phot="${DIR}/secondary_phot_combined_contour0.4_noAri.txt"
 # Noiseless 102 band SED
 Catgrid="/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/makegrid_photometry/makegrid_output/cosmos2020_166k_catgrid_102spherex_corrected.out"
 # Color-magnitude cuts
@@ -38,17 +38,17 @@ conda activate spherexsim_tractor
 ## change to the relevant directory
 cd /Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/deep-field-phot-on-maps/scripts/
 
-# ## Run run_QC_blended.py
-# cmd = "python run_QC_blended.py N_srcs cpu /Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/blended_QC/test.txt 0 1"
-# echo $cmd
 
-## Generate confusion library
-echo "Generate confusion library ..."
-python confusion_lib_run.py -N "$n_conf" -c "$cpu" -i "$Cut" -o "$conf_lib_fn"
 
-# ## Inject confusion lib into QC output secondary photometry
-# echo "Confusion injection..."
-# python confusion_injection.py -i "$input_phot" -l "$conf_lib_fn" -s "$Catgrid" -o "$output_phot"
+# ## Generate confusion library
+# echo "Generate confusion library ..."
+# python confusion_lib_run.py -N "$n_conf" -c "$cpu" -i "$Cut" -o "$conf_lib_fn"
+
+
+## Inject confusion lib into QC output secondary photometry
+cd /Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/
+echo "Confusion injection..."
+python confusion_injection.py -i "$input_phot" -l "$conf_lib_fn" -s "$Catgrid" -o "$output_phot"
 
 
 

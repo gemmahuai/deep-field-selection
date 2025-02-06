@@ -16,6 +16,7 @@ from astropy.io import fits
 import astropy.units as u
 from pyarrow import parquet
 from astropy.coordinates import SkyCoord, Distance
+import argparse
 
 import os
 import sys
@@ -31,7 +32,7 @@ from SPHEREx_SkySimulator import QuickCatalog, Catalog_to_Simulate
 
 
 # survey_plan_file = '/work/09746/gemmah0521/ls6/sims/source_selection/data/spherex_survey_plan_R2.fits' # on TACC
-survey_plan_file = "/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/spherex_survey_plan_R2.fits" # on local machine
+survey_plan_file = "/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data/survey_plan/spherex_survey_plan_R3_trunc3month.fits" # on local machine
 SPHEREx_Pointings = SPobs.Pointings(input_file = survey_plan_file,
                                    Gaussian_jitter=0., 
                                    roll_angle='psi2')
@@ -62,6 +63,29 @@ Channels = Table.read(data_filename('Channel_Definition_03022021.fits'))
 ### Set up some directories
 primary_dir = "/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data/blended_QC/"
 file_inter = "/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data/blended_QC/"
+
+## try parsing arguments here?
+parser = argparse.ArgumentParser(description="blending photometry with QC + Tractor")
+parser.add_argument('-N', '-N_sources',  type=int, required=True, help="Number of sources to perform photometry")
+parser.add_argument('-C', '-CPU', type=int, required=True, help="Maximum percentage of CPU to use")
+parser.add_argument('-c', '-contour', type=float, required=True, choices=[0.2, 0.4, 0.6, 0.8], help="contour level used for the refcat selection")
+parser.add_argument('-p', '-prim_combine', type=int, required=True, choices=[0, 1], help="combine primary photometry? 0 = do not combine; 1 = combine")
+parser.add_argument('-o', '-output', type=str, required=True, help='full path to the output combined secondary photometry file with txt extension')
+args = parser.parse_args()
+
+N_sources = args.N
+max_cpu_percent = args.C
+contour = args.c
+combine_prim_phot = args.p
+output_filename = args.o
+
+
+
+## input data files as global variables
+COSMOS_tab = Table.read("/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data/refcat_cuts/COSMOS2020_SPHEXrefcat_v0.6_166k_matched_Jean8k.csv")
+idx_refcat = np.loadtxt(f"/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data/refcat_cuts/boolean_cut_{contour}.txt", 
+                        dtype=bool, skiprows=2)
+
 
 
 # ------------------------------------------------------------------------------------
@@ -177,7 +201,7 @@ def calc_source_separation(RA, DEC):
 
 def process_source(source_data):
 
-    (i, COSMOS_tab, idx_refcat, ra_colname, dec_colname, 
+    (i, ra_colname, dec_colname, 
      SPHEREx_Pointings, SPHEREx_Instrument, Scene, output_filename) = source_data
 
 
@@ -353,25 +377,19 @@ def parallel_process(func, func_args, N_runs, max_cpu_percent):
 if __name__ == '__main__':
     Time_start = time.time()
 
-    # number of sources to be included from the 30k reference catalog
-    N_sources = int(sys.argv[1])
-    # Set maximum CPU usage
-    max_cpu_percent = int(sys.argv[2])
-    output_filename = str(sys.argv[3]) # txt extension
-    # starting index in the COSMOS 166k catalog
-    start_index = int(sys.argv[4])
-    combine_prim_phot = int(sys.argv[5]) # 0: not combine; 1: combine primary photometry
+    # # number of sources to be included from the 30k reference catalog
+    # N_sources = int(sys.argv[1])
+    # # Set maximum CPU usage
+    # max_cpu_percent = int(sys.argv[2])
+    # output_filename = str(sys.argv[3]) # txt extension
+    # # starting index in the COSMOS 166k catalog
+    # start_index = int(sys.argv[4])
+    # combine_prim_phot = int(sys.argv[5]) # 0: not combine; 1: combine primary photometry
 
     # ----------------------- Inputs -------------------------------
 
-    # COSMOS_tab = Table.read('/Users/gemmahuai/Desktop/CalTech/SPHEREx/SPHEREx_2023/COSMOS2020_FARMER_R1_v2.1_p3_in_Richard_sim_2023Dec4.fits', format='fits')
-    COSMOS_tab = Table.read("/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data/refcat_cuts/COSMOS2020_SPHEXrefcat_v0.6_166k_matched_Jean8k.csv")
     ra_colname = "ra"
     dec_colname = "dec"
-
-    # idx_refcat = np.loadtxt("/Users/gemmahuai/Desktop/CalTech/SPHEREx/source_selection/cosmos166k_posmatch_boolarray.txt", dtype=bool)
-    idx_refcat = np.loadtxt("/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data/refcat_cuts/boolean_cut_0.2.txt", 
-                            dtype=bool, skiprows=2)
 
 
     # ------------------- Start Simulation -------------------------
@@ -379,9 +397,13 @@ if __name__ == '__main__':
     # Down-select from Jean's 8k catalog + refcat randomly.
     match = COSMOS_tab['match'] == 'True'
     cosmology = (COSMOS_tab['COSMOLOGY'] == 1) # full sky cut
-    rand_ids = np.random.randint(low=0,
-                                 high=len(COSMOS_tab[match & (~cosmology) & idx_refcat]),
-                                 size=N_sources)
+    # rand_ids = np.random.randint(low=0,
+    #                              high=len(COSMOS_tab[match & (~cosmology) & idx_refcat]),
+    #                              size=N_sources)
+    ## follow the order, instead of random draws
+    id_start = 1100
+    rand_ids = np.arange(id_start, N_sources+id_start)
+
     print(len(idx_refcat), len(match))
 
     # ## plot and check refcat selection
@@ -400,7 +422,7 @@ if __name__ == '__main__':
     # plt.show()
 
     # constrcut argument list passed to process per source function
-    source_args = [(k, COSMOS_tab, idx_refcat, ra_colname, dec_colname,
+    source_args = [(k, ra_colname, dec_colname,
                     SPHEREx_Pointings, SPHEREx_Instrument, Scene,
                     output_filename)
                     for k in rand_ids]

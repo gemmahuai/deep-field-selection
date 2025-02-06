@@ -32,7 +32,8 @@ from spherex_parameters import load_spherex_parameters
 from SPHEREx_SkySimulator import QuickCatalog, Catalog_to_Simulate
 
 # survey_plan_file = data_filename('spherex_survey_plan_R2.fits')
-survey_plan_file = "/work2/09746/gemmah0521/frontera/sims/deepfield_sim/data/survey_plan/spherex_survey_plan_R3_trunc3month.fits"
+# survey_plan_file = "/work2/09746/gemmah0521/frontera/sims/deepfield_sim/data/survey_plan/spherex_survey_plan_R3_trunc3month.fits"
+survey_plan_file = "/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data/survey_plan/spherex_survey_plan_R3_trunc3month.fits" # on local machine
 SPHEREx_Pointings = SPobs.Pointings(input_file = survey_plan_file,
                                    Gaussian_jitter=0., 
                                    roll_angle='psi2')
@@ -56,11 +57,40 @@ SPHEREx_Instrument = SPinst.Instrument(
 Channels = Table.read(data_filename('Channel_Definition_03022021.fits'))
 
 
+## set up parser
+parser = argparse.ArgumentParser(description="blending photometry with QC + Tractor")
+parser.add_argument('-N', '-N_sources',  type=int, required=True, help="Number of sources to perform photometry")
+parser.add_argument('-C', '-CPU', type=int, required=True, help="Maximum percentage of CPU to use")
+parser.add_argument('-c', '-contour', type=float, required=True, choices=[0.2, 0.4, 0.6, 0.8], help="contour level used for the refcat selection")
+parser.add_argument('-p', '-prim_combine', type=int, required=True, choices=[0, 1], help="combine primary photometry? 0 = do not combine; 1 = combine")
+parser.add_argument('-o', '-output', type=str, required=True, help='full path to the output combined secondary photometry file with txt extension')
+args = parser.parse_args()
+
+N_sources = args.N
+max_cpu_percent = args.C
+contour = args.c
+combine_prim_phot = args.p
+output_filename = args.o
+
+
 ### Set up some directories for outputs
 # primary_dir = "/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data/blended_QC/"
 # file_inter = "/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data/blended_QC/"
-primary_dir = "/work2/09746/gemmah0521/frontera/sims/deepfield_sim/data/QCoutput/"
-file_inter = "/work2/09746/gemmah0521/frontera/sims/deepfield_sim/data/QCoutput/"
+# primary_dir = "/work2/09746/gemmah0521/frontera/sims/deepfield_sim/data/test_data/"
+# file_inter = "/work2/09746/gemmah0521/frontera/sims/deepfield_sim/data/test_data/"
+# COSMOS_tab = Table.read("/work2/09746/gemmah0521/frontera/sims/deepfield_sim/data/refcat_cuts/COSMOS2020_SPHEXrefcat_v0.6_166k_matched_Jean8k.csv")
+# idx_refcat = np.loadtxt(f"/work2/09746/gemmah0521/frontera/sims/deepfield_sim/data/refcat_cuts/boolean_cut_0.4.txt", dtype=bool, skiprows=2)
+
+## local directories
+COSMOS_tab = Table.read("/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data/refcat_cuts/COSMOS2020_SPHEXrefcat_v0.6_166k_matched_Jean8k.csv")
+idx_refcat = np.loadtxt(f"/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data/refcat_cuts/boolean_cut_{contour}.txt", 
+                        dtype=bool, skiprows=2)
+primary_dir = "/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/data/blended_QC/"
+file_inter = primary_dir
+
+id_start = 1100
+rand_ids = np.arange(id_start, N_sources+id_start)
+
 
 # ------------------------------------------------------------------------------------
 ### All functions defined here
@@ -102,17 +132,32 @@ def handler(signum, frame):
     raise Exception("End of time")
 
 
-# function finding the new, corrected fits file
+### function finding the new, corrected fits file
+# def find_sed_fits_file_corrected(index, tractorID):
+#     if index < 60000:
+#         #print("0 - 60000")
+#         DIR = "/work2/09746/gemmah0521/frontera/sims/deepfield_sim/data/COSMOS_ALL_HIRES_SEDS_010925/0_60000/"
+#     elif index < 120000:
+#         #print("60000 - 120000")
+#         DIR = "/work2/09746/gemmah0521/frontera/sims/deepfield_sim/data/COSMOS_ALL_HIRES_SEDS_010925/60000_120000/"
+#     else:
+#         #print("120000 - ")
+#         DIR = "/work2/09746/gemmah0521/frontera/sims/deepfield_sim/data/COSMOS_ALL_HIRES_SEDS_010925/120000_166041/"
+#     filename = DIR + f"cosmos2020_hiresSED_FarmerID_{tractorID:07d}_corrected.fits"
+#     return filename
+
+# local version
 def find_sed_fits_file_corrected(index, tractorID):
     if index < 60000:
         #print("0 - 60000")
-        DIR = "/work2/09746/gemmah0521/frontera/sims/deepfield_sim/data/COSMOS_ALL_HIRES_SEDS_010925/0_60000/"
+        DIR = "/Users/gemmahuai/Desktop/CalTech/SPHEREx/COSMOS_ALL_HIRES_SEDS_010925/0_60000/"
     elif index < 120000:
         #print("60000 - 120000")
-        DIR = "/work2/09746/gemmah0521/frontera/sims/deepfield_sim/data/COSMOS_ALL_HIRES_SEDS_010925/60000_120000/"
+        DIR = "/Users/gemmahuai/Desktop/CalTech/SPHEREx/COSMOS_ALL_HIRES_SEDS_010925/60000_120000/"
     else:
         #print("120000 - ")
-        DIR = "/work2/09746/gemmah0521/frontera/sims/deepfield_sim/data/COSMOS_ALL_HIRES_SEDS_010925/120000_166041/"
+        DIR = "/Users/gemmahuai/Desktop/CalTech/SPHEREx/COSMOS_ALL_HIRES_SEDS_010925/120000_166041/"
+    
     filename = DIR + f"cosmos2020_hiresSED_FarmerID_{tractorID:07d}_corrected.fits"
     return filename
 
@@ -122,7 +167,7 @@ def find_sed_fits_file_corrected(index, tractorID):
 
 def process_source(source_data):
 
-    (i, COSMOS_tab, idx_refcat, ra_colname, dec_colname, 
+    (i, ra_colname, dec_colname, 
      SPHEREx_Pointings, SPHEREx_Instrument, Scene, output_filename) = source_data
 
 
@@ -149,7 +194,7 @@ def process_source(source_data):
 
     ## set up timer for timeout session
     signal.signal(signal.SIGALRM, handler)
-    timeout_duration = 3550 # seconds timeout
+    timeout_duration = 3600 # seconds timeout
     signal.alarm(timeout_duration)
 
 
@@ -200,8 +245,48 @@ def process_source(source_data):
                                             dec=dec_this*u.deg,
                                             inputpath=sed_this)
             
+        ## plot and check source selection
+        if i == id_start:
+            plt.figure(figsize=(5,4))
+            def get_mag_from_flux(flux_Jy):
+                mag = -2.5 * np.log10(flux_Jy / 3631)
+                return mag
+
+            mag_w1 = get_mag_from_flux(COSMOS_tab['LS_W1'] / 1e6)
+            mag_z  = get_mag_from_flux(COSMOS_tab['LS_z']  / 1e6)
+            cl_x = mag_z
+            cl_y = mag_z - mag_w1
+
+            plt.scatter(cl_x, cl_y, s=1, alpha=0.1)
+            # plt.scatter(cl_x[match & (~cosmology)], 
+            #             cl_y[match & (~cosmology)], 
+            #             s=0.5, color='black', label='Jean 8k + non full sky')
+
+            print("N srcs (< full_sky ) = ", len(COSMOS_tab[match & (~cosmology)]))
+            print("N srcs (< full_sky & > deep_cut ) = ", len(COSMOS_tab[match & (~cosmology) & idx_refcat]))
+
+            plt.scatter(cl_x[match & (~cosmology) & idx_refcat], 
+                        cl_y[match & (~cosmology) & idx_refcat], 
+                        s=0.5, color='red', label='primary source pool')
+
+            plt.scatter(cl_x[match & (~cosmology) & idx_refcat][rand_ids], 
+                        cl_y[match & (~cosmology) & idx_refcat][rand_ids], 
+                        s=10, color='green', label='primary sources')
+            print('length = ', len(cl_x[match & (~cosmology) & idx_refcat][rand_ids]))
+            
+            plt.scatter(cl_x[idx_refcat & xmatch][idx_close], 
+                        cl_y[idx_refcat & xmatch][idx_close], 
+                        s=3, color='black', label='neighbors')
+            
+            plt.legend()
+            plt.show()
+        
+
+            
+        # print("photometry with QC...")
         ## photometry
         SPHEREx_Catalog, Truth_Catalog = QC(Sources_to_Simulate) 
+        # print("Done QC")
 
         id_primary = SPHEREx_Catalog['SOURCE_ID'] == f'COSMOS_{tractorID}'
 
@@ -209,11 +294,61 @@ def process_source(source_data):
         SPHEREx_Catalog.add_column(Truth_Catalog['Zodi'], name='Zodi')
         SPHEREx_Catalog.add_column(Truth_Catalog['Flux'], name='Flux')
 
-      
+        ## save l3 primary photometry with truth catalog
+        # save_level3_primary_truth(SPHEREx_Catalog[id_primary], primary_dir + f'primary_phot_id{tractorID}.parq')
+        
+        # print("Start writing to fits file")
         ## Directly save SPHEREx Catalog table with Truth Catalog... for later secondary photometry calc
         SPHEREx_Catalog[id_primary].write(primary_dir + f'primary_phot_id{tractorID}.fits', format='fits', overwrite=True)
         # print("Done writing to fits file")
 
+
+        ## intermediate files, need to be removed
+#         # file_inter = "./" # on local machine
+#         SPsky.save_level3_secondary(SPHEREx_Catalog[id_primary], 
+#                                     Channels, 
+#                                     SPHEREx_Instrument, 
+#                                     file_inter+'secondary_phot_id{}.parq'.format(tractorID), 
+#                                     pointing_table=SPHEREx_Pointings.pointing_table, 
+#                                     fluxerr_from_weights=True)
+#         secondary_tbl = Table.read(file_inter+'secondary_phot_id{}.parq'.format(tractorID), format="parquet")
+#     
+#         # save secondary (full sky / deep field)
+#         if ra_colname.endswith('_deep'):
+#             flux_colname = 'flux_deepfield'
+#             flux_err_colname = 'flux_err_deepfield'
+#         else:
+#             flux_colname = 'flux_allsky'
+#             flux_err_colname = 'flux_err_allsky'
+# 
+#         f = secondary_tbl[flux_colname][0] / 1000 # mJy
+#         fe = secondary_tbl[flux_err_colname][0] / 1000 # mJy
+# 
+#         # well if there's singular matrix non-invertible, put nan everywhere...
+#         if False in np.isfinite(fe):
+#             f = np.nan + np.zeros_like(f)
+#             fe = np.nan + np.zeros_like(fe)
+# 
+#         # delete the intermediate file
+#         try:
+#             os.remove(file_inter + 'secondary_phot_id{}.parq'.format(tractorID))
+#         except FileNotFoundError:
+#             print(f"File '{file_inter}' not found.")
+# 
+#     
+#         # write / append to the output txt file as photoz input
+#         if i==0:
+#             write_output_to_photoz(flux=f, 
+#                                    flux_err=fe, 
+#                                    source_id=tractorID, 
+#                                    filename=output_filename, 
+#                                    NewFile=True)
+#         else:
+#             write_output_to_photoz(flux=f, 
+#                                    flux_err=fe, 
+#                                    source_id=tractorID, 
+#                                    filename=output_filename, 
+#                                    NewFile=False)
         # end timing
         time_end = time.time()
         time_elapsed = time_end - time_start
@@ -276,31 +411,22 @@ def parallel_process(func, func_args, N_runs, max_cpu_percent):
 
 if __name__ == '__main__':
 
-    mp.set_start_method("forkserver")
+    mp.set_start_method("spawn", force=True)
 
-    ## set up parser
-    parser = argparse.ArgumentParser(description="blending photometry with QC + Tractor")
-    parser.add_argument('-N', '-N_sources',  type=int, required=True, help="Number of sources to perform photometry")
-    parser.add_argument('-C', '-CPU', type=int, required=True, help="Maximum percentage of CPU to use")
-    parser.add_argument('-c', '-contour', type=float, required=True, choices=[0.2, 0.4, 0.6, 0.8], help="contour level used for the refcat selection")
-    parser.add_argument('-p', '-prim_combine', type=int, required=True, choices=[0, 1], help="combine primary photometry? 0 = do not combine; 1 = combine")
-    parser.add_argument('-o', '-output', type=str, required=True, help='full path to the output combined secondary photometry file with txt extension')
-    args = parser.parse_args()
 
-    N_sources = args.N
-    max_cpu_percent = args.C
-    contour = args.c
-    combine_prim_phot = args.p
-    output_filename = args.o
+    ## check CPU usage
+    print("OMP_NUM_THREADS:", os.environ.get('OMP_NUM_THREADS'))
+    print("MKL_NUM_THREADS:", os.environ.get('MKL_NUM_THREADS'))
+    print("OPENBLAS_NUM_THREADS:", os.environ.get('OPENBLAS_NUM_THREADS'))
 
 
     # ----------------------- Inputs -------------------------------
 
-    COSMOS_tab = Table.read("/work2/09746/gemmah0521/frontera/sims/deepfield_sim/data/refcat_cuts/COSMOS2020_SPHEXrefcat_v0.6_166k_matched_Jean8k.csv")
-    ra_colname = "ra_deep"
-    dec_colname = "dec_deep"
+    # COSMOS_tab = Table.read("/work2/09746/gemmah0521/frontera/sims/deepfield_sim/data/refcat_cuts/COSMOS2020_SPHEXrefcat_v0.6_166k_matched_Jean8k.csv")
+    ra_colname = "ra"
+    dec_colname = "dec"
 
-    idx_refcat = np.loadtxt(f"/work2/09746/gemmah0521/frontera/sims/deepfield_sim/data/refcat_cuts/boolean_cut_{contour}.txt", dtype=bool, skiprows=2)
+    # idx_refcat = np.loadtxt(f"/work2/09746/gemmah0521/frontera/sims/deepfield_sim/data/refcat_cuts/boolean_cut_{contour}.txt", dtype=bool, skiprows=2)
 
 
     # ------------------- Start Simulation -------------------------
@@ -312,14 +438,28 @@ if __name__ == '__main__':
     # randomly select N_sources from the pool
     # rand_ids = np.random.choice(indices, size=N_sources, replace=False)
     # given start index, select N sources in order, from match & (~cosmology) & idx_refcat
-    id_start = 0
+    id_start = 1100
     rand_ids = np.arange(id_start, N_sources+id_start)
 
     print(len(idx_refcat), len(match))
 
+    # ## plot and check refcat selection
+    # def get_mag_from_flux(flux_Jy):
+    #     mag = -2.5 * np.log10(flux_Jy / 3631)
+    #     return mag
+
+    # mag_w1 = get_mag_from_flux(COSMOS_tab['LS_W1'] / 1e6)
+    # mag_z  = get_mag_from_flux(COSMOS_tab['LS_z']  / 1e6)
+
+    # fig = plt.figure(figsize=(6,5))
+    # plt.scatter(mag_z, mag_z - mag_w1, s=1, alpha=0.1)
+    # plt.scatter(mag_z[match], mag_z[match] - mag_w1[match], s=1, color='black')
+    # plt.scatter(mag_z[match & idx_refcat], mag_z[match & idx_refcat] - mag_w1[match & idx_refcat], s=1, color='red')
+    # plt.scatter(mag_z[match & idx_refcat][rand_ids], mag_z[match & idx_refcat][rand_ids] - mag_w1[match & idx_refcat][rand_ids], s=10, color='green')
+    # plt.show()
 
     # constrcut argument list passed to process per source function
-    source_args = [(k, COSMOS_tab, idx_refcat, ra_colname, dec_colname,
+    source_args = [(k,ra_colname, dec_colname,
                     SPHEREx_Pointings, SPHEREx_Instrument, Scene,
                     output_filename)
                     for k in rand_ids]
@@ -327,7 +467,7 @@ if __name__ == '__main__':
     # start timing
     Time_start = time.time()
 
-    # Run parallel processing
+   # Run parallel processing
     results = parallel_process(func=process_source,
                                func_args=source_args,
                                N_runs=N_sources,
@@ -337,4 +477,47 @@ if __name__ == '__main__':
     Time_end = time.time()
     Time_elapsed = Time_end - Time_start
     print(f"Total Runtime = {Time_elapsed:.3f} seconds.")
+
+
+#     if combine_prim_phot == 1:
+#         # combine all primary photometry parquet files into one
+#         directory = primary_dir
+#         name = 'primary_' # files starting with 'primary': primary_phot_id{source_tID}.parq
+# 
+#         files = os.listdir(directory)
+#         filenames = [filename for filename in files if filename.startswith(name)]
+# 
+#         files_parq = [file for file in filenames if file.endswith(".parq")]
+# 
+#         # sort files based on tractor ID
+#         files_parq_sorted = sorted(files_parq, key=lambda x: int(x.split('id')[-1].split('.parq')[0]))
+# 
+#         # combine the table
+#         output_combined_parq_name = output_filename.split(".txt")[0] + "_primary_combined.parq"
+#         remove = False # if remove is True, remove individual primary photometry parquet files
+#         tab_C = None # initialize the combined table
+#         for i, file in enumerate(files_parq_sorted):
+# 
+#             # read the primary photometry parquet table
+#             data = Table.read(directory+file)
+#             print(data['source_id'][0])
+#             data['source_id'][0] = int(file.split('id')[-1].split('.parq')[0])
+#             print(data['source_id'][0])
+# 
+#             if i==0:
+#                 tab_C = data.copy()
+#             else:
+#                 # if not the first source, append photometry to the first table.
+#                 tab_C.add_row(data[0])
+# 
+#             # if remove is True, remove individual primary parquet files
+#             if remove is True:
+#                 os.remove(directory + file)
+# 
+#         print("\nLength of the combined parq table = ", len(tab_C))
+# 
+#         # output
+#         tab_C.write(output_combined_parq_name, format='parquet', overwrite=True)
+#         print("\nDONE writing to a combined parquet file.")
+
 
