@@ -25,7 +25,7 @@ output_phot=$5
 ### Inputs
 # Pull the combined secondary photometry file from TACC, with scaled error bars, but no injection yet
 DIR="/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/deep_field/deep-field-phot-on-maps/data/secondary/"
-input_phot="${DIR}/secondary_phot_combined_contour0.4_noAri.txt"
+input_phot="${DIR}/secondary_phot_combined_contour${cut}_noAri.txt"
 # Noiseless 102 band SED
 Catgrid="/Users/gemmahuai/Desktop/CalTech/SPHEREx/Redshift/makegrid_photometry/makegrid_output/cosmos2020_166k_catgrid_102spherex_corrected.out"
 # Color-magnitude cuts

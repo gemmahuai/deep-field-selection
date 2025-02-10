@@ -1,6 +1,5 @@
 # collect all primary photometry fits table and scale from 3 month to 2 year survey;
-# write combined secondary photometry into a text file that can be passed to Photo-z.
-
+# write combined secondary photometry into a text file that can be passed to Photo-z. 
 # gemmahuai 02/03/25
 
 import numpy as np
@@ -83,7 +82,6 @@ files = os.listdir(directory)
 filenames = [filename for filename in files if filename.startswith(name)]
 files_sorted = sorted(filenames, key=lambda x: int(x.split('id')[-1].split('.fits')[0]))
 
-
 ### for each, calculate original secondary photometry, save flux errors
 
 ## output directory
@@ -91,6 +89,7 @@ secondary_dir = "/work2/09746/gemmah0521/frontera/sims/deepfield_sim/data/interm
 ra_colname = 'ra_deep'
 dec_colname = 'dec_deep'
 output_filename = "/work2/09746/gemmah0521/frontera/sims/deepfield_sim/data/QCoutput/secondary_phot_combined_noAri.txt"
+
 
 
 ## Z-score calculation later
